@@ -70,8 +70,11 @@ top of `app.js`: `GENERATOR_QUERY`, `looksLikeGenerator`, `diagnoseMissingCatalo
 - **Never hardcode the generator's code.** `looksLikeGenerator` lowercases `code`/`name`, strips
   non-alphanumerics and tests for `pipelinecards` (`GENERATOR_KEY_MATCH`). Links are built from the
   `code` the query actually returned.
-- `diagnoseMissingCatalog` is reused by the run-error drift hint, so it resolves the generator's
-  state generally, despite its name.
+- `diagnoseMissingCatalog` is reused by the run-error drift hint and the not-installed panel (both
+  via `generatorRefreshUrl`), so it resolves the generator's state generally, despite its name.
+  The not-installed panel's "Refresh the catalogue" link starts on the pipelines list and is
+  narrowed to the generator in a second pass (`resolveMissingGeneratorLink`, cached in
+  `APP.generatorHref`).
 
 ## Run errors
 

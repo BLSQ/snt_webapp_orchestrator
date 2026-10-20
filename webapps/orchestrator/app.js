@@ -659,16 +659,20 @@ var I18N = {
     // external links
     "link.readmeGithub": "README on GitHub",
     "link.seeWhat": "see what this pipeline does",
-    "link.installTemplates": "Install from pipeline templates",
-    "link.browseTemplates":
-      "browse the available SNT templates in OpenHEXA",
     // missing / not-installed panel
     "missing.title": "This pipeline isn’t installed in this workspace yet.",
     "missing.body":
-      "It’s part of the standard SNT pipeline map, but it hasn’t been added to {slug}. Install it from the OpenHEXA pipeline templates below, then reload this page — it’ll become active and runnable here.",
+      "It’s part of the standard SNT pipeline map, but it hasn’t been added to {slug}. To make it active and runnable here:",
+    "missing.step1": "Install it from the {link}.",
+    "missing.templatesWords": "OpenHEXA pipeline templates",
+    "missing.step2":
+      "Run “create_pipeline_cards” to refresh this workspace’s catalogue — installing alone isn’t enough.",
+    "missing.step3": "Reload this page.",
     "missing.thisWorkspace": "this workspace",
+    "link.refreshCatalogueTitle": "Refresh the catalogue",
+    "link.refreshCatalogueSub": "open “create_pipeline_cards” in OpenHEXA and run it",
     "missing.templatesOnlyInOH":
-      "The link to the templates page is only available when this app is opened inside OpenHEXA.",
+      "The pipeline templates link and the “Refresh the catalogue” link are only available when this app is opened inside OpenHEXA.",
     // boot / fatal
     "boot.loading": "Loading pipelines…",
     "boot.failed": "Couldn’t load the pipeline data.",
@@ -844,16 +848,20 @@ var I18N = {
     // external links
     "link.readmeGithub": "README sur GitHub",
     "link.seeWhat": "voir ce que fait ce pipeline",
-    "link.installTemplates": "Installer depuis les modèles de pipeline",
-    "link.browseTemplates":
-      "parcourir les modèles SNT disponibles dans OpenHEXA",
     // missing / not-installed panel
     "missing.title": "Ce pipeline n’est pas encore installé dans cet espace de travail.",
     "missing.body":
-      "Il fait partie de la carte standard des pipelines SNT, mais il n’a pas été ajouté à {slug}. Installez-le depuis les modèles de pipeline OpenHEXA ci-dessous, puis rechargez cette page — il deviendra actif et exécutable ici.",
+      "Il fait partie de la carte standard des pipelines SNT, mais il n’a pas été ajouté à {slug}. Pour le rendre actif et exécutable ici :",
+    "missing.step1": "Installez-le depuis les {link}.",
+    "missing.templatesWords": "modèles de pipeline OpenHEXA",
+    "missing.step2":
+      "Exécutez « create_pipeline_cards » pour actualiser le catalogue de cet espace de travail — l’installation seule ne suffit pas.",
+    "missing.step3": "Rechargez cette page.",
     "missing.thisWorkspace": "cet espace de travail",
+    "link.refreshCatalogueTitle": "Actualiser le catalogue",
+    "link.refreshCatalogueSub": "ouvrir « create_pipeline_cards » dans OpenHEXA et l’exécuter",
     "missing.templatesOnlyInOH":
-      "Le lien vers la page des modèles n’est disponible que lorsque cette application est ouverte dans OpenHEXA.",
+      "Le lien vers les modèles de pipeline et le lien « Actualiser le catalogue » ne sont disponibles que lorsque cette application est ouverte dans OpenHEXA.",
     // boot / fatal
     "boot.loading": "Chargement des pipelines…",
     "boot.failed": "Impossible de charger les données des pipelines.",
@@ -919,6 +927,8 @@ var APP = {
   activeRun: {}, // node id -> run id being polled
   groupInUse: {}, // group id -> in-use node id (latest success)
   lastSuccessAt: {}, // node id -> ms of most recent observed success
+  generatorHref: null, // resolved "refresh the catalogue" link (not-installed panel)
+  generatorLookup: false, // that lookup is in flight
 };
 
 /* ================================================================== *
@@ -1876,6 +1886,7 @@ function renderCockpit() {
       missingBodyHtml(node || step.members[0]) +
       "</div>" +
       footHtml(step);
+    resolveMissingGeneratorLink(workspaceSlug());
     var wrap = document.querySelector(".cockpit-wrap");
     if (wrap) wrap.scrollTop = 0;
     return;
@@ -2075,15 +2086,27 @@ function missingBodyHtml(node) {
     t("link.readmeGithub"),
     t("link.seeWhat"),
   );
+  // Step 1's "OpenHEXA pipeline templates" is the templates link itself;
+  // plain text outside OpenHEXA.
+  var templatesHtml = escapeHtml(t("missing.templatesWords"));
   if (slug) {
     var templatesUrl =
       appBaseUrl() + "/workspaces/" + slug + "/pipelines/?tab=templates";
+    templatesHtml =
+      '<a href="' +
+      escapeHtml(templatesUrl) +
+      '" target="_blank" rel="noopener">' +
+      templatesHtml +
+      "</a>";
+    // Starts on the pipelines list; resolveMissingGeneratorLink() narrows it
+    // to the generator itself once the lookup comes back.
     links += extLinkHtml(
-      templatesUrl,
-      "✚",
-      t("link.installTemplates"),
-      t("link.browseTemplates"),
-    );
+      APP.generatorHref ||
+        appBaseUrl() + "/workspaces/" + encodeURIComponent(slug) + "/pipelines/",
+      "↻",
+      t("link.refreshCatalogueTitle"),
+      t("link.refreshCatalogueSub"),
+    ).replace("<a ", '<a id="sb-generator-link" ');
   }
   return (
     '<div class="sb-missing">' +
@@ -2095,6 +2118,17 @@ function missingBodyHtml(node) {
       slug: "<strong>" + escapeHtml(slug || t("missing.thisWorkspace")) + "</strong>",
     }) +
     "</p>" +
+    "<ol>" +
+    "<li>" +
+    t("missing.step1", { link: templatesHtml }) +
+    "</li>" +
+    "<li>" +
+    escapeHtml(t("missing.step2")) +
+    "</li>" +
+    "<li>" +
+    escapeHtml(t("missing.step3")) +
+    "</li>" +
+    "</ol>" +
     "</div>" +
     (node.description
       ? '<p class="desc" style="margin-top:14px">' +
@@ -2112,6 +2146,22 @@ function missingBodyHtml(node) {
         escapeHtml(t("missing.templatesOnlyInOH")) +
         "</p>")
   );
+}
+
+/* Second pass for missingBodyHtml: point the "refresh the catalogue" link at
+ * the generator itself. The target is workspace-wide, so it doesn't matter
+ * which not-installed step is showing by the time this resolves; once found it
+ * is remembered so re-renders don't repeat the query. On failure the link stays
+ * on the pipelines list. */
+async function resolveMissingGeneratorLink(slug) {
+  if (!slug || APP.generatorHref || APP.generatorLookup) return;
+  APP.generatorLookup = true;
+  var href = await generatorRefreshUrl(slug);
+  APP.generatorLookup = false;
+  if (!href) return;
+  APP.generatorHref = href;
+  var a = document.getElementById("sb-generator-link");
+  if (a) a.href = href;
 }
 
 // Refresh only the live/dynamic parts of the current panel (no form rebuild) —
@@ -2608,16 +2658,22 @@ function runErrorInfo(errors) {
   return { text: t("msg.runNotAccepted"), drift: false };
 }
 
-/* The "this workspace's catalogue is stale — refresh it" tail for a run-status
- * line, with a link to the generator as it actually exists here (or to the
- * template if it isn't installed at all). Best-effort: if it can't be resolved,
- * keep the instruction and drop the link. */
-async function catalogueRefreshHintHtml(slug) {
-  var href = null;
+/* Where to send someone who needs to refresh the catalogue: the generator as it
+ * actually exists here, or its template if it isn't installed at all. null when
+ * the lookup failed. Costs one query. */
+async function generatorRefreshUrl(slug) {
   var d = await diagnoseMissingCatalog(slug);
-  if (d && d.code) href = generatorPipelineUrl(slug, d.code);
-  else if (d && d.state === "notInstalled") href = generatorTemplateUrl(slug);
-  // state "unknown" -> no link; the instruction alone still says what to do.
+  if (d && d.code) return generatorPipelineUrl(slug, d.code);
+  if (d && d.state === "notInstalled") return generatorTemplateUrl(slug);
+  return null; // state "unknown"
+}
+
+/* The "this workspace's catalogue is stale — refresh it" tail for a run-status
+ * line. Best-effort: if the generator can't be resolved, keep the instruction
+ * and drop the link. */
+async function catalogueRefreshHintHtml(slug) {
+  // null -> no link; the instruction alone still says what to do.
+  var href = await generatorRefreshUrl(slug);
 
   // The status line is a flex row, so the hint is its own full-width flex item
   // rather than a <br> (which wouldn't break the line inside a flex container).

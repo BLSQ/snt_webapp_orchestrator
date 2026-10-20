@@ -1017,6 +1017,20 @@ select.finput {
 .sb-missing p {
   margin: 0 0 8px;
 }
+.sb-missing ol {
+  margin: 0;
+  padding-left: 20px;
+}
+.sb-missing li + li {
+  margin-top: 3px;
+}
+/* Inline link in a step (e.g. the templates). The panel text is soft, so the
+   link lifts out of it, as in .ck-boot. */
+.sb-missing a {
+  color: var(--ink);
+  font-weight: 600;
+  text-decoration: underline;
+}
 .sb-missing p:last-child {
   margin-bottom: 0;
 }
