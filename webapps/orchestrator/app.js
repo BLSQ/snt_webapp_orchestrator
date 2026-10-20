@@ -155,7 +155,8 @@ async function fetchJson(url) {
  * a boot error rather than silently serving a stale bundled copy. */
 async function loadCards() {
   var slug = workspaceSlug();
-  if (!slug) throw new Error(t("boot.noWorkspace"));
+  if (!slug)
+    throw new Error(t(isLocalDev() ? "boot.noWorkspaceLocal" : "boot.noWorkspace"));
 
   var url = await mintDownloadUrl(slug, CARDS_OBJECT_KEY);
   if (!url) throw await missingCatalogError(slug);
@@ -436,6 +437,15 @@ function workspaceSlug() {
     : null;
 }
 
+// Same hosts as OpenHEXA's dev.js activates on (index.html). Used only to word
+// the "no workspace" boot error for a local page that has not connected yet.
+function isLocalDev() {
+  return (
+    window.location.protocol === "file:" ||
+    ["localhost", "127.0.0.1", "::1", "[::1]"].indexOf(window.location.hostname) !== -1
+  );
+}
+
 /* ================================================================== *
  * i18n — language state, string table, and accessors
  * ------------------------------------------------------------------ *
@@ -685,6 +695,8 @@ var I18N = {
     "boot.noSteps": "No steps to show.",
     "boot.noWorkspace":
       "The workspace couldn’t be resolved — open this app from inside OpenHEXA.",
+    "boot.noWorkspaceLocal":
+      "Running locally and not connected yet — click “Connect to OpenHEXA” (bottom right) and pick the orchestrator webapp of a workspace.",
     "boot.cardsMissing":
       "No pipeline catalogue was found in this workspace ({key}). Run the “create_pipeline_cards” pipeline to generate it.",
     "boot.cardsUnreadable":
@@ -878,6 +890,8 @@ var I18N = {
     "boot.noSteps": "Aucune étape à afficher.",
     "boot.noWorkspace":
       "L’espace de travail n’a pas pu être identifié — ouvrez cette application depuis OpenHEXA.",
+    "boot.noWorkspaceLocal":
+      "Exécution locale, pas encore connectée — cliquez sur « Connect to OpenHEXA » (en bas à droite) et choisissez la webapp orchestrateur d’un espace de travail.",
     "boot.cardsMissing":
       "Aucun catalogue de pipelines n’a été trouvé dans cet espace de travail ({key}). Exécutez le pipeline « create_pipeline_cards » pour le générer.",
     "boot.cardsUnreadable":

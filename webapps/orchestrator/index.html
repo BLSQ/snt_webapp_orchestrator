@@ -46,6 +46,13 @@
       </div>
     </div>
 
+    <!-- Local development (ADR 0014): OpenHEXA's dev shim. Only active on
+         localhost / 127.0.0.1 / file:// — inert when served by OpenHEXA. It
+         must stay a plain (not async/defer) script before app.js: it sets
+         window.OPENHEXA and reroutes /graphql/ before app.js boots. No
+         data-* slugs here — the bundle is workspace-independent; pick the
+         webapp in the "Connect to OpenHEXA" picker instead. -->
+    <script src="https://api.openhexa.org/webapps/dev.js"></script>
     <script src="app.js"></script>
   </body>
 </html>

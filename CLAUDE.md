@@ -65,7 +65,7 @@ Status: `enforced` — something fails mechanically · `convention` — manual; 
 | R3 | Catalog drift is fixed by re-running `create_pipeline_cards`, never by hand-editing | `convention` | [ADR 0003](docs/decisions/0003-catalog-parameters-from-deployed-version.md) |
 | R4 | No fallback catalog: a missing catalog fails the boot with a diagnosis | `convention` | [ADR 0002](docs/decisions/0002-catalog-in-workspace-bucket.md) |
 | R5 | Node `id` = Python function name is the only cross-workspace key; UUIDs/catalogs never cross workspaces | `convention` | [ADR 0006](docs/decisions/0006-node-id-is-python-function-name.md) |
-| R6 | The bundle is 5 flat, workspace-independent files: no build, no CDN, no new script tags without review | `convention` | [ADR 0007](docs/decisions/0007-multi-file-bundle-no-build.md) |
+| R6 | The bundle is 5 flat, workspace-independent files: no build, no CDN, no new script tags without review (sole exception: OpenHEXA's `dev.js`, never with slugs pinned) | `convention` | [ADR 0007](docs/decisions/0007-multi-file-bundle-no-build.md), [ADR 0014](docs/decisions/0014-ship-openhexa-dev-js.md) |
 | R7 | Every chrome string in both `I18N.en` and `I18N.fr`; data text edited in both languages; structural fields never translated | `convention` | [ADR 0008](docs/decisions/0008-one-bilingual-app.md), [app rules](webapps/orchestrator/CLAUDE.md#bilingual-text) |
 | R8 | Dynamic values reaching `innerHTML` paths are escaped first | `convention` | [app rules](webapps/orchestrator/CLAUDE.md#html-injection-seam) |
 | R9 | The webapp stays **private** and has exactly `PIPELINES_READ, PIPELINES_RUN, FILES_READ, USER_READ` | `convention` | [runtime](docs/OPENHEXA_WEBAPP_RUNTIME.md#allowed_operations-scopes) |
@@ -118,6 +118,7 @@ docs link to it.
 | What the product does, roadmap, PM decisions | [`docs/PRODUCT_SPEC.md`](docs/PRODUCT_SPEC.md) |
 | How the pieces fit: catalog, node states, map format, i18n tiers | [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) |
 | OpenHEXA webapp know-how: proxy, scopes, queries, run errors, polling, signed URLs, URLs, `dev.js` | [`docs/OPENHEXA_WEBAPP_RUNTIME.md`](docs/OPENHEXA_WEBAPP_RUNTIME.md) |
+| How to run the app locally against a real workspace | [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md#developing-locally) |
 | How to deploy (a CSS change, a full bundle, a new workspace), scopes, rollback, schema refresh | [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md) |
 | Rules for editing the app code | [`webapps/orchestrator/CLAUDE.md`](webapps/orchestrator/CLAUDE.md) |
 | Why something is the way it is | [`docs/decisions/`](docs/decisions/README.md) |

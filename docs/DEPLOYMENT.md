@@ -16,6 +16,47 @@ recorded in the repo** ([ADR 0011](decisions/0011-repo-is-not-a-deployment-recor
   plan.
 - **The catalog** is never deployed — it is produced by running the generator in the workspace.
 
+## Developing locally
+
+Try bundle edits against a real workspace **before** deploying them. OpenHEXA's `dev.js` (already
+in `index.html`, [ADR 0014](decisions/0014-ship-openhexa-dev-js.md)) routes the local page's
+GraphQL calls through a deployed webapp. How it works:
+[`OPENHEXA_WEBAPP_RUNTIME.md`](OPENHEXA_WEBAPP_RUNTIME.md#local-development-devjs).
+
+1. Serve the bundle folder from the repo root (any port works):
+
+   ```bash
+   python3 -m http.server 5173 --directory webapps/orchestrator
+   ```
+
+   Then open **`http://localhost:5173/`** in a browser where you are logged in to
+   `app.openhexa.org`. Do **not** open `index.html` as a `file://` page: `app.js` loads
+   `pipeline_map.json` and `pipeline_descriptions.json` with `fetch`, which browsers block on
+   `file://`.
+2. The boot panel says *"Running locally and not connected yet"*. Click **Connect to OpenHEXA**
+   (bottom right), pick the orchestrator webapp of the workspace to test against (normally
+   `snt-pipelines-orchestrator-cockpit`) and **Approve**. The page reloads connected, and the
+   corner pill shows `<workspace>/<webapp>`.
+3. Edit files in `webapps/orchestrator/`, then reload. If an edit does not show, do a hard reload
+   or tick DevTools → Network → *Disable cache*.
+
+What comes from where once connected:
+
+| Local working copy (your edits) | The connected workspace (live) |
+|---|---|
+| `index.html`, `styles.css`, `app.js`, `pipeline_map.json`, `pipeline_descriptions.json` | The catalog, run status, runs, outputs, reports, under the connected webapp's scopes |
+
+- The connected webapp must **already be deployed** in that workspace: private, with the four
+  scopes ([Setting scopes](#setting-scopes)). Its deployed files are not used, only its identity
+  and scopes. The workspace also needs a catalog, as when the app is deployed.
+- ⚠️ **Run starts real pipeline runs in that workspace.** Prefer a test workspace for anything
+  beyond read-only checks.
+- The credential lasts for one tab. A new tab, or an expired credential, shows the Connect button
+  again. **Switch** on the pill picks another webapp.
+- **Never commit a pinned tag** (`data-workspace-slug` / `data-webapp-slug`): the bundle is
+  workspace-independent (R6), so use the picker.
+- Local testing does not replace the post-deploy check below.
+
 ## Before you edit a deployed webapp
 
 1. Resolve the webapp live: `list_static_webapps(workspace_slug)` → `id` (for writes) and `slug`

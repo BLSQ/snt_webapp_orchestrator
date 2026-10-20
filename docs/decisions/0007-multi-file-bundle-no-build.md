@@ -1,7 +1,8 @@
 # 0007. A flat multi-file bundle: no build step, no CDN, no layout library
 
 Date: not recorded
-Status: Accepted
+Status: Accepted — the "no CDN scripts" rule has one exception, OpenHEXA's `dev.js`
+([0014](0014-ship-openhexa-dev-js.md))
 
 ## Context
 
@@ -25,8 +26,8 @@ map has a fixed, hand-authored order, so automatic graph layout adds nothing.
 - What is in the repo is byte-for-byte what is deployed; a deploy can be a partial upload of the
   changed files, and drag-and-drop in the OpenHEXA UI works.
 - Data (map, descriptions) can be edited without touching code.
-- No third-party code runs in the app. Adding any script tag (e.g. OpenHEXA's own `dev.js`,
-  [DEV-1](../BACKLOG.md#dev-1)) is a reviewed change.
+- No third-party code runs in the app. Adding any script tag is a reviewed change (OpenHEXA's own
+  `dev.js` was reviewed and added: [0014](0014-ship-openhexa-dev-js.md)).
 - No type checking, minification or module system: `app.js` is one large plain-JS file, and
   structure is by convention ([`webapps/orchestrator/CLAUDE.md`](../../webapps/orchestrator/CLAUDE.md)).
 

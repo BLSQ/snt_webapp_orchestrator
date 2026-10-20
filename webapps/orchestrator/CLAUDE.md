@@ -14,7 +14,7 @@ without a reason** ([ADR 0007](../../docs/decisions/0007-multi-file-bundle-no-bu
 
 | File | Role |
 |---|---|
-| `index.html` | Minimal shell: containers, header appbar, EN/FR toggle, links to `styles.css` / `app.js` |
+| `index.html` | Minimal shell: containers, header appbar, EN/FR toggle, links to `styles.css` / `app.js`, and OpenHEXA's `dev.js` tag (local dev only; keep it a plain script right before `app.js`, no slugs — [ADR 0014](../../docs/decisions/0014-ship-openhexa-dev-js.md)) |
 | `styles.css` | All styling |
 | `app.js` | All logic + the `I18N` string table. Fetches the two JSON files as same-origin siblings |
 | `pipeline_map.json` | Hand-authored map — contract: [`contracts/pipeline_map.schema.json`](../../contracts/pipeline_map.schema.json) |
@@ -111,5 +111,7 @@ generic branch still prints the codes, so nothing is swallowed). The four drift 
 
 ## After changing anything here
 
+Try it locally first — serve this folder and connect to a workspace
+([`docs/DEPLOYMENT.md`](../../docs/DEPLOYMENT.md#developing-locally)); **Run** there starts real runs.
 A change to any bundle file needs a redeploy to take effect ([`docs/DEPLOYMENT.md`](../../docs/DEPLOYMENT.md)).
 Comment-only changes can wait for the next real deploy.

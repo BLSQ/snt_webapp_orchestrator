@@ -217,18 +217,40 @@ appBase + "/workspaces/" + ws + "/templates/" + encodeURIComponent(templateName)
 ## Local development (`dev.js`)
 
 OpenHEXA serves **`https://api.openhexa.org/webapps/dev.js`** (the `api.` host;
-`app.openhexa.org/webapps/dev.js` 404s). With one script tag in `index.html`, a page opened over
-`file://` or a local static server can call the **real** `/graphql/` proxy of a real workspace,
-under a deployed webapp's actual scopes:
+`app.openhexa.org/webapps/dev.js` 404s). With one script tag in `index.html`, a page served
+locally can call the **real** `/graphql/` proxy of a real workspace, under a deployed private
+webapp's actual scopes. The orchestrator ships the tag in its bundle
+([ADR 0014](decisions/0014-ship-openhexa-dev-js.md)); how to use it for this repo:
+[`DEPLOYMENT.md`](DEPLOYMENT.md#developing-locally).
 
 ```html
-<script src="https://api.openhexa.org/webapps/dev.js"
-        data-workspace-slug="<workspace-slug>"
-        data-webapp-slug="<webapp-slug>"></script>
+<script src="https://api.openhexa.org/webapps/dev.js"></script>
+<script src="app.js"></script>
 ```
 
-A **Connect to OpenHEXA** button appears; pick a private static webapp, approve, and the page
-reloads with `window.OPENHEXA` populated. Per the doc the tag is **inert once deployed** (it only
-activates on `file://` and `localhost`). Webapps created from OpenHEXA's default template already
-include it. **The orchestrator does not use it yet** — adopting it puts a third-party script tag in
-the production bundle, so it is a reviewed change ([DEV-1](BACKLOG.md#dev-1)).
+How it behaves (read from the script itself, ~10 KB of plain JS):
+
+- **Activation:** only when `location.protocol` is `file:` or the hostname is `localhost`,
+  `127.0.0.1` or `::1`. On any other host (a deployed webapp) it returns at once and touches
+  nothing. A deployed page still downloads it.
+- **Load order:** it must be a plain script (no `async` / `defer`) **before** the app's own
+  script. With a cached credential it sets `window.OPENHEXA` and the `/graphql/` reroute
+  synchronously, so the app boots already connected.
+- **Connect:** a **Connect to OpenHEXA** button (bottom right) opens a popup on
+  `api.openhexa.org/webapps/dev-auth/` that lists the private static webapps you can develop
+  against. Approve and the page reloads connected. A corner pill then shows
+  `<workspace>/<webapp>`, with **Switch** (or **Reconnect** when pinned).
+- **Before connecting**, `window.OPENHEXA` is unset and `/graphql/` calls **wait**: they neither
+  fail nor open a popup.
+- **Rerouting:** only same-origin `fetch` calls to the path `/graphql/` are wrapped. They go to the
+  chosen webapp's preview host with `credentials: "omit"`. Any other `fetch` (the bundle's JSON
+  files, signed bucket URLs) is untouched, so it is served by the local server or fetched
+  directly. `XMLHttpRequest` is not wrapped.
+- **Credential:** cached in `sessionStorage` per tab. A reload reuses it, and a new tab connects
+  again. When it expires (404/401), the button reappears and the pending call retries after you
+  reconnect.
+- **Pinning** (optional) skips the picker: `data-workspace-slug` + `data-webapp-slug` on the tag,
+  the same names as query parameters on its `src`, or
+  `window.OPENHEXA_DEV = { workspaceSlug, webappSlug }` set before it loads.
+- **Scopes** are the connected webapp's own `allowed_operations`, so a call that works locally
+  works deployed, and a 403 locally is a 403 deployed.

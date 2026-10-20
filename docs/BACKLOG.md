@@ -111,13 +111,6 @@ re-pushed and re-run in that workspace.
 
 ## Dev experience & tooling
 
-### <a id="dev-1"></a>DEV-1 · Adopt `dev.js` for local development
-
-`https://api.openhexa.org/webapps/dev.js` lets a local page call a real workspace's proxy under a
-deployed webapp's scopes ([how](OPENHEXA_WEBAPP_RUNTIME.md#local-development-devjs)). Would replace
-most deploy-to-test loops. Reviewed change: a third-party script tag in `index.html` (inert when
-deployed, per the doc).
-
 ### <a id="tool-1"></a>TOOL-1 · Dependency-free check script
 
 Validate the JSON files against `contracts/`, check map node ids == description keys, and check
