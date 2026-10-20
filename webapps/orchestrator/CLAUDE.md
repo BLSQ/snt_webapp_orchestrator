@@ -94,7 +94,12 @@ generic branch still prints the codes, so nothing is swallowed). The four drift 
 ## Other seams
 
 - **Parameter controls:** `fieldControlHtml` has dedicated controls only for DHIS2 and custom
-  connections (dropdowns from `workspace { connections }`, needing `USER_READ`). Other connection
+  connections (dropdowns from `workspace { connections }`, which the proxy currently refuses even
+  with `USER_READ`, so today the text input always shows; [OH-2](../../docs/BACKLOG.md#oh-2)). Three outcomes:
+  query loaded with matches → dropdown; loaded with none of that type → a "No … connection — add
+  one on the Connections page" note (`.fnoconn`, `form.noConn`, links to
+  `/workspaces/<slug>/connections/`); query failed or returned no
+  `workspace` (`APP.connections` stays `null`) → free-text slug input. Other connection
   types (`IASOConnection`, `PostgreSQLConnection`, `GCSConnection`, `S3Connection`) fall back to a
   text input; a new type needs a branch there.
 - **Report embed:** `renderReportEmbeds()` mounts the HTML report in an `<iframe>` on a signed URL

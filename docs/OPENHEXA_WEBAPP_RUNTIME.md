@@ -49,7 +49,10 @@ fetch("/graphql/", {
 ```
 
 The proxy enforces an **Origin check** (same-origin requests only) and answers **HTTP 403** for a
-top-level field outside the webapp's scopes.
+top-level field outside the webapp's scopes. It also filters **nested fields**: a query whose
+top-level field is allowed can still be refused with `Fields not allowed: <Type>.<field>, …` (a
+GraphQL error, so `gql()` throws). A scope unlocking a top-level field does not unlock every field
+under it.
 
 ## `allowed_operations` scopes
 
@@ -72,9 +75,12 @@ check before relying on them. `__typename`, `__schema` and `__type` are always a
 
 - `FILES_READ` is **boot-critical**: it signs the app's own catalog read, as well as report and
   output downloads. Without it the app does not load.
-- `USER_READ` is the one most easily forgotten: it powers `workspace { connections }` for the
-  connection dropdowns in the parameter form. Without it the form silently falls back to a plain
-  text input.
+- `USER_READ` unlocks `workspace`, but **not** `workspace { connections }`: the proxy refuses it
+  with `Fields not allowed: Connection.id, Connection.name, Connection.slug, Connection.type,
+  Workspace.connections`, and no scope grants it. So the parameter form's connection dropdowns
+  never load, and connection parameters fall back to a text slug input
+  ([OH-2](BACKLOG.md#oh-2)). The app keeps `USER_READ` (R9) and the dropdown code, so they work as
+  soon as the proxy allows the fields.
 
 Available under these scopes but unused: `readFileContent` (an alternative catalog read,
 [UI-10](BACKLOG.md#ui-10)), `stopPipeline` ([UI-1](BACKLOG.md#ui-1)), `getFileByPath`.

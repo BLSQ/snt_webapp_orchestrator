@@ -83,8 +83,9 @@ Status: `enforced` — something fails mechanically · `convention` — manual; 
   `config.WEBAPP_SLUG` and fails if that webapp is absent.
 - **`.io` vs `.org`.** Webapps are served on `*.openhexa.io`; the UI is `app.openhexa.org`. Never
   derive the app host from the webapp hostname.
-- **Public webapps cannot call the proxy**; **`FILES_READ` is boot-critical**; a missing
-  `USER_READ` silently drops the connection dropdowns.
+- **Public webapps cannot call the proxy**; **`FILES_READ` is boot-critical**; the proxy also
+  filters **nested fields**: `workspace { connections }` is refused even with `USER_READ`, so
+  the connection dropdowns fall back to a text input ([OH-2](docs/BACKLOG.md#oh-2)).
 - **`workspace { pipelines }` does not parse** — use top-level `pipelines(workspaceSlug:)`.
 - **`runPipeline.errors` is an enum**, never prose. **`terminating` is not terminal** — keep polling.
   Statuses are lowercase.

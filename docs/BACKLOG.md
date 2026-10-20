@@ -77,6 +77,14 @@ serves an unpublished head, then document the procedure in [`DEPLOYMENT.md`](DEP
 The CLI deploys pipelines only and the SDK webapp surface is read-only. A request was said to be in
 flight but is not tracked anywhere.
 
+### <a id="oh-2"></a>OH-2 · Ask OpenHEXA to allow `workspace { connections }` through the webapp proxy
+
+The proxy refuses `Workspace.connections` and `Connection.{id,name,slug,type}` even with
+`USER_READ` ([runtime](OPENHEXA_WEBAPP_RUNTIME.md#allowed_operations-scopes)), so the
+DHIS2/custom connection dropdowns never load and users must type a slug. Ask for those fields (no
+secret fields) under `USER_READ` or a new scope. Until then the app's text fallback stands; the
+dropdown and the "no connection of this type" note activate on their own once the query passes.
+
 ## Workspace operations
 
 ### <a id="ops-1"></a>OPS-1 · Unpublish the live Flowchart webapps?
