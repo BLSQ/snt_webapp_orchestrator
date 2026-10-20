@@ -1,0 +1,242 @@
+{
+  "version": "2026-07-17",
+  "_notes": "Orchestrator map. `row` is the WALKTHROUGH STAGE index (0=Extract, 1=Format, 2=Clean & enrich, 3=Derive, 4=Outputs) rather than a 2D grid row — the cockpit renders a linear guided walkthrough, not a 2D map. `label` is bilingual: a { \"en\": ..., \"fr\": ... } object resolved by the app via pickLang() (falls back to `en`); a plain string is still accepted (treated as `en`). `ohName`, `code`, `type`, `group`, `row`/`col`, `track` and `edges` are structural — NOT translated (ohName mirrors the OpenHEXA display name; display-only, matching is by id). Descriptions are NOT stored here — they live in pipeline_descriptions.json (same folder); see contracts/pipeline_descriptions.schema.json. Authoring conventions, per-member-edge rule, and group-aware unlock semantics: see contracts/pipeline_map.schema.json and CLAUDE.md (Node states).",
+  "grid": { "cols": 11 },
+  "nodes": [
+    {
+      "id": "snt_dhis2_extract",
+      "code": "A.1",
+      "label": { "en": "Routine Data - Extraction", "fr": "Données de routine - Extraction" },
+      "ohName": "A.1 DHIS2 Extract",
+      "type": "mandatory",
+      "row": 0,
+      "col": 5,
+      "track": "A"
+    },
+    {
+      "id": "snt_dhis2_formatting",
+      "code": "A.2",
+      "label": { "en": "Routine Data - Formatting", "fr": "Données de routine - Mise en forme" },
+      "ohName": "A.2 DHIS2 Formatting",
+      "type": "mandatory",
+      "row": 1,
+      "col": 5,
+      "track": "A"
+    },
+    {
+      "id": "snt_dhis2_outliers_imputation_magic_glasses",
+      "code": "A.3",
+      "label": { "en": "Outliers: Magic Glasses", "fr": "Valeurs aberrantes : Magic Glasses" },
+      "ohName": "A.3 DHIS2 Outlier Detection and Imputation (MAGIC GLASSES)",
+      "type": "alternative",
+      "group": "a3_outliers",
+      "row": 2,
+      "col": 0,
+      "track": "A"
+    },
+    {
+      "id": "snt_dhis2_outliers_imputation_mean",
+      "code": "A.3",
+      "label": { "en": "Outliers: Mean", "fr": "Valeurs aberrantes : Moyenne" },
+      "ohName": "A.3 DHIS2 Outlier Detection and Imputation (MEAN)",
+      "type": "alternative",
+      "group": "a3_outliers",
+      "row": 2,
+      "col": 1,
+      "track": "A"
+    },
+    {
+      "id": "snt_dhis2_outliers_imputation_median",
+      "code": "A.3",
+      "label": { "en": "Outliers: Median", "fr": "Valeurs aberrantes : Médiane" },
+      "ohName": "A.3 DHIS2 Outlier Detection and Imputation (MEDIAN)",
+      "type": "alternative",
+      "group": "a3_outliers",
+      "row": 2,
+      "col": 2,
+      "track": "A"
+    },
+    {
+      "id": "snt_dhis2_outliers_imputation_iqr",
+      "code": "A.3",
+      "label": { "en": "Outliers: IQR", "fr": "Valeurs aberrantes : IQR" },
+      "ohName": "A.3 DHIS2 Outlier Detection and Imputation (IQR)",
+      "type": "alternative",
+      "group": "a3_outliers",
+      "row": 2,
+      "col": 3,
+      "track": "A"
+    },
+    {
+      "id": "snt_dhis2_outliers_imputation_path",
+      "code": "A.3",
+      "label": { "en": "Outliers: PATH", "fr": "Valeurs aberrantes : PATH" },
+      "ohName": "A.3 DHIS2 Outlier Detection and Imputation (PATH)",
+      "type": "alternative",
+      "group": "a3_outliers",
+      "row": 2,
+      "col": 4,
+      "track": "A"
+    },
+    {
+      "id": "snt_dhis2_reporting_rate_dataelement",
+      "code": "A.4",
+      "label": { "en": "Reporting Rate: Data element", "fr": "Taux de complétude : Élément de données" },
+      "ohName": "A.4 DHIS2 Reporting Rate (Data element)",
+      "type": "alternative",
+      "group": "a4_reporting_rate",
+      "row": 3,
+      "col": 1.5,
+      "track": "A"
+    },
+    {
+      "id": "snt_dhis2_reporting_rate_dataset",
+      "code": "A.4",
+      "label": { "en": "Reporting Rate: Dataset", "fr": "Taux de complétude : Dataset" },
+      "ohName": "A.4 DHIS2 Reporting Rate (Dataset)",
+      "type": "alternative",
+      "group": "a4_reporting_rate",
+      "row": 3,
+      "col": 2.5,
+      "track": "A"
+    },
+    {
+      "id": "snt_dhis2_population_transformation",
+      "code": "A.5",
+      "label": { "en": "Population Transformation", "fr": "Transformation de la population" },
+      "ohName": "A.5 DHIS2 Population Transformation",
+      "type": "facultative",
+      "row": 3,
+      "col": 6,
+      "track": "A"
+    },
+    {
+      "id": "snt_dhis2_incidence",
+      "code": "A.6",
+      "label": { "en": "DHIS2 Incidence", "fr": "Incidence DHIS2" },
+      "ohName": "A.6 DHIS2 Incidence",
+      "type": "facultative",
+      "row": 4,
+      "col": 5,
+      "track": "A"
+    },
+    {
+      "id": "snt_seasonality_cases",
+      "code": "A.7",
+      "label": { "en": "Seasonality - Cases", "fr": "Saisonnalité - Cas" },
+      "ohName": "A.7 DHIS2 Seasonality - Cases",
+      "type": "facultative",
+      "row": 4,
+      "col": 6,
+      "track": "A"
+    },
+    {
+      "id": "snt_worldpop_extract",
+      "code": "B.1",
+      "label": { "en": "WorldPop Extract", "fr": "Extraction WorldPop" },
+      "ohName": "B.1 WorldPop Extract",
+      "type": "facultative",
+      "row": 2,
+      "col": 7,
+      "track": "B"
+    },
+    {
+      "id": "snt_map_extracts",
+      "code": "B.2",
+      "label": { "en": "MAP Extracts", "fr": "Extractions MAP" },
+      "ohName": "B.2 MAP Extracts",
+      "type": "facultative",
+      "row": 4,
+      "col": 7,
+      "track": "B"
+    },
+    {
+      "id": "snt_healthcare_access",
+      "code": "B.3",
+      "label": { "en": "Access to Health Care", "fr": "Accès aux soins de santé" },
+      "ohName": "B.3 Access to health care",
+      "type": "facultative",
+      "row": 4,
+      "col": 8,
+      "track": "B"
+    },
+    {
+      "id": "snt_dhs_indicators",
+      "code": "C.1",
+      "label": { "en": "DHS Indicators", "fr": "Indicateurs DHS" },
+      "ohName": "C.1 DHS Indicators",
+      "type": "facultative",
+      "row": 2,
+      "col": 9,
+      "track": "C"
+    },
+    {
+      "id": "snt_era5_climate_data",
+      "code": "D.1",
+      "label": { "en": "ERA5 Climate Data", "fr": "Données climatiques ERA5" },
+      "ohName": "D.1 ERA5 Climate Data",
+      "type": "facultative",
+      "row": 2,
+      "col": 10,
+      "track": "D"
+    },
+    {
+      "id": "snt_seasonality_rainfall",
+      "code": "D.2",
+      "label": { "en": "ERA5 Seasonality - Rainfall", "fr": "Saisonnalité ERA5 - Précipitations" },
+      "ohName": "D.2 ERA5 Seasonality - Rainfall",
+      "type": "facultative",
+      "row": 4,
+      "col": 10,
+      "track": "D"
+    }
+  ],
+  "edges": [
+    { "from": "snt_dhis2_extract", "to": "snt_dhis2_formatting", "type": "solid" },
+
+    { "from": "snt_dhis2_formatting", "to": "snt_dhis2_outliers_imputation_magic_glasses", "type": "solid" },
+    { "from": "snt_dhis2_formatting", "to": "snt_dhis2_outliers_imputation_mean", "type": "solid" },
+    { "from": "snt_dhis2_formatting", "to": "snt_dhis2_outliers_imputation_median", "type": "solid" },
+    { "from": "snt_dhis2_formatting", "to": "snt_dhis2_outliers_imputation_iqr", "type": "solid" },
+    { "from": "snt_dhis2_formatting", "to": "snt_dhis2_outliers_imputation_path", "type": "solid" },
+
+    { "from": "snt_dhis2_formatting", "to": "snt_dhis2_reporting_rate_dataelement", "type": "solid" },
+    { "from": "snt_dhis2_formatting", "to": "snt_dhis2_reporting_rate_dataset", "type": "solid" },
+
+    { "from": "snt_dhis2_outliers_imputation_magic_glasses", "to": "snt_dhis2_reporting_rate_dataelement", "type": "optional" },
+    { "from": "snt_dhis2_outliers_imputation_mean", "to": "snt_dhis2_reporting_rate_dataelement", "type": "optional" },
+    { "from": "snt_dhis2_outliers_imputation_median", "to": "snt_dhis2_reporting_rate_dataelement", "type": "optional" },
+    { "from": "snt_dhis2_outliers_imputation_iqr", "to": "snt_dhis2_reporting_rate_dataelement", "type": "optional" },
+    { "from": "snt_dhis2_outliers_imputation_path", "to": "snt_dhis2_reporting_rate_dataelement", "type": "optional" },
+
+    { "from": "snt_dhis2_outliers_imputation_magic_glasses", "to": "snt_dhis2_reporting_rate_dataset", "type": "optional" },
+    { "from": "snt_dhis2_outliers_imputation_mean", "to": "snt_dhis2_reporting_rate_dataset", "type": "optional" },
+    { "from": "snt_dhis2_outliers_imputation_median", "to": "snt_dhis2_reporting_rate_dataset", "type": "optional" },
+    { "from": "snt_dhis2_outliers_imputation_iqr", "to": "snt_dhis2_reporting_rate_dataset", "type": "optional" },
+    { "from": "snt_dhis2_outliers_imputation_path", "to": "snt_dhis2_reporting_rate_dataset", "type": "optional" },
+
+    { "from": "snt_dhis2_formatting", "to": "snt_dhis2_population_transformation", "type": "solid" },
+    { "from": "snt_dhis2_formatting", "to": "snt_dhis2_incidence", "type": "solid" },
+    { "from": "snt_dhis2_formatting", "to": "snt_seasonality_cases", "type": "solid" },
+    { "from": "snt_dhis2_formatting", "to": "snt_worldpop_extract", "type": "solid" },
+    { "from": "snt_dhis2_formatting", "to": "snt_map_extracts", "type": "solid" },
+    { "from": "snt_dhis2_formatting", "to": "snt_dhs_indicators", "type": "solid" },
+    { "from": "snt_dhis2_formatting", "to": "snt_era5_climate_data", "type": "solid" },
+
+    { "from": "snt_era5_climate_data", "to": "snt_seasonality_rainfall", "type": "solid" },
+
+    { "from": "snt_dhis2_outliers_imputation_magic_glasses", "to": "snt_dhis2_incidence", "type": "optional" },
+    { "from": "snt_dhis2_outliers_imputation_mean", "to": "snt_dhis2_incidence", "type": "optional" },
+    { "from": "snt_dhis2_outliers_imputation_median", "to": "snt_dhis2_incidence", "type": "optional" },
+    { "from": "snt_dhis2_outliers_imputation_iqr", "to": "snt_dhis2_incidence", "type": "optional" },
+    { "from": "snt_dhis2_outliers_imputation_path", "to": "snt_dhis2_incidence", "type": "optional" },
+
+    { "from": "snt_dhis2_reporting_rate_dataelement", "to": "snt_dhis2_incidence", "type": "optional" },
+    { "from": "snt_dhis2_reporting_rate_dataset", "to": "snt_dhis2_incidence", "type": "optional" },
+
+    { "from": "snt_dhis2_population_transformation", "to": "snt_dhis2_incidence", "type": "optional" },
+    { "from": "snt_dhs_indicators", "to": "snt_dhis2_incidence", "type": "optional" },
+
+    { "from": "snt_dhis2_formatting", "to": "snt_healthcare_access", "type": "solid" }
+  ]
+}

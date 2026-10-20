@@ -1,0 +1,78 @@
+{
+  "_description": "Hand-authored pipeline descriptions, identical for every workspace. Keyed by pipeline id (the Python function name — same join key used everywhere else). This is the SINGLE place to edit a pipeline's description text; see contracts/pipeline_descriptions.schema.json for the contract and formatting rules. Each value is a { \"en\": ..., \"fr\": ... } object (bilingual); the app resolves the active language via pickLang() and falls back to `en`. A plain string is still accepted (treated as `en`) for backward compatibility.",
+  "version": "2026-07-17",
+  "descriptions": {
+    "snt_dhis2_extract": {
+      "en": "**Extracts** DHIS2 pyramid, routine surveillance data, population, shapes, and reporting rates for a period.\n\nA subnational tailoring (SNT) exercise begins with your country's own routine malaria data — the monthly case, testing, and treatment figures that health facilities report through the national surveillance system. In most countries this lives in DHIS2, the platform behind most national Health Management Information Systems (HMIS) and National Malaria Data Repositories (NMDR).\nPreparing this data usually means pulling together several separate pieces — district and facility lists, the monthly surveillance numbers, stock data, population figures, and district boundaries — each handled on its own. This pipeline brings all of that into a single step: it connects to your DHIS2 instance and extracts every piece at once, then stores them in one consistent, aligned structure ready for analysis. At this stage, nothing is cleaned, combined, or calculated yet — the data is taken exactly as it sits in DHIS2.",
+      "fr": "**Extrait** la pyramide DHIS2, les données de surveillance de routine, la population, les limites géographiques et les taux de complétude pour une période.\n\nUn exercice de ciblage infranational (SNT) commence par les données de routine du paludisme de votre propre pays — les chiffres mensuels de cas, de tests et de traitements que les formations sanitaires transmettent via le système national de surveillance. Dans la plupart des pays, ces données résident dans DHIS2, la plateforme qui sous-tend la majorité des systèmes nationaux d'information sanitaire (SNIS) et des dépôts nationaux de données sur le paludisme (NMDR).\nPréparer ces données implique généralement de rassembler plusieurs éléments distincts — listes des districts et des formations sanitaires, chiffres mensuels de surveillance, données de stock, chiffres de population et limites des districts — chacun traité séparément. Ce pipeline réunit le tout en une seule étape : il se connecte à votre instance DHIS2 et extrait tous les éléments d'un coup, puis les stocke dans une structure unique, cohérente et alignée, prête pour l'analyse. À ce stade, rien n'est encore nettoyé, combiné ni calculé — les données sont reprises exactement telles qu'elles figurent dans DHIS2."
+    },
+    "snt_dhis2_formatting": {
+      "en": "**Processes** and **formats** the DHIS2 extracts (pyramid, shapes, routine data) for the SNT workflow.\n\nThis step takes the raw case, population, facility, boundary, and reporting files and reorganises each into a clean, consistent table, with districts and months labelled the same way throughout. It also builds the routine surveillance indicators from the underlying data elements. The result is one aligned, analysis-ready set of tables that every later step draws on, plus a short quality-review report so you can confirm the data looks right before moving on.",
+      "fr": "**Traite** et **met en forme** les extraits DHIS2 (pyramide, limites géographiques, données de routine) pour le flux de travail SNT.\n\nCette étape prend les fichiers bruts de cas, de population, de formations sanitaires, de limites et de complétude et réorganise chacun en une table propre et cohérente, avec des districts et des mois libellés de la même manière partout. Elle construit aussi les indicateurs de surveillance de routine à partir des éléments de données sous-jacents. Le résultat est un ensemble de tables alignées et prêtes pour l'analyse, sur lequel s'appuient toutes les étapes suivantes, ainsi qu'un court rapport de contrôle qualité pour confirmer que les données semblent correctes avant de poursuivre."
+    },
+    "snt_dhis2_outliers_imputation_magic_glasses": {
+      "en": "Outlier detection and imputation using the Magic Glasses (MAD-based) method.",
+      "fr": "Détection et imputation des valeurs aberrantes par la méthode Magic Glasses (basée sur le MAD)."
+    },
+    "snt_dhis2_outliers_imputation_mean": {
+      "en": "Outlier detection and imputation using the mean +/- k x SD method.",
+      "fr": "Détection et imputation des valeurs aberrantes par la méthode moyenne +/- k x ET."
+    },
+    "snt_dhis2_outliers_imputation_median": {
+      "en": "Outlier detection and imputation using the median +/- k x MAD method.",
+      "fr": "Détection et imputation des valeurs aberrantes par la méthode médiane +/- k x MAD."
+    },
+    "snt_dhis2_outliers_imputation_iqr": {
+      "en": "Outlier detection and imputation using the IQR (inter-quartile range) method.",
+      "fr": "Détection et imputation des valeurs aberrantes par la méthode IQR (écart interquartile)."
+    },
+    "snt_dhis2_outliers_imputation_path": {
+      "en": "Outlier detection and imputation using the PATH method (mean +/- 10 x SD).",
+      "fr": "Détection et imputation des valeurs aberrantes par la méthode PATH (moyenne +/- 10 x ET)."
+    },
+    "snt_dhis2_reporting_rate_dataelement": {
+      "en": "Reporting rate computed from routine data elements.",
+      "fr": "Taux de complétude calculé à partir des éléments de données de routine."
+    },
+    "snt_dhis2_reporting_rate_dataset": {
+      "en": "Reporting rate from DHIS2 dataset-level rate indicators.",
+      "fr": "Taux de complétude à partir des indicateurs de taux au niveau des datasets DHIS2."
+    },
+    "snt_dhis2_population_transformation": {
+      "en": "Scales, projects, and disaggregates DHIS2 population by demographic group.",
+      "fr": "Met à l'échelle, projette et désagrège la population DHIS2 par groupe démographique."
+    },
+    "snt_dhis2_incidence": {
+      "en": "Computes malaria case metrics and yearly incidence from routine HMIS data.",
+      "fr": "Calcule les métriques de cas de paludisme et l'incidence annuelle à partir des données HMIS de routine."
+    },
+    "snt_seasonality_cases": {
+      "en": "Classifies case seasonality at ADM2 from routine confirmed-malaria data.",
+      "fr": "Classe la saisonnalité des cas au niveau ADM2 à partir des données de routine de paludisme confirmé."
+    },
+    "snt_worldpop_extract": {
+      "en": "Extracts WorldPop population raster data for the country.",
+      "fr": "Extrait les données raster de population WorldPop pour le pays."
+    },
+    "snt_map_extracts": {
+      "en": "Extracts Malaria Atlas Project rasters and computes zonal statistics.",
+      "fr": "Extrait les rasters du Malaria Atlas Project et calcule des statistiques zonales."
+    },
+    "snt_healthcare_access": {
+      "en": "Computes access-to-care metrics from facilities, population, and catchments.",
+      "fr": "Calcule les métriques d'accès aux soins à partir des formations sanitaires, de la population et des aires de desserte."
+    },
+    "snt_dhs_indicators": {
+      "en": "Computes DHS survey-based indicators for the SNT process.",
+      "fr": "Calcule les indicateurs issus des enquêtes DHS pour le processus SNT."
+    },
+    "snt_era5_climate_data": {
+      "en": "Extracts ERA5 climate data from the Copernicus Climate Data Store.",
+      "fr": "Extrait les données climatiques ERA5 depuis le Copernicus Climate Data Store."
+    },
+    "snt_seasonality_rainfall": {
+      "en": "Computes rainfall seasonality metrics from ERA5 climate data.",
+      "fr": "Calcule les métriques de saisonnalité des précipitations à partir des données climatiques ERA5."
+    }
+  }
+}

@@ -1,0 +1,449 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>SNT Pipeline Map — Grid Editor</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; }
+    html, body { height: 100%; margin: 0; }
+    body {
+      font-family: system-ui, -apple-system, sans-serif;
+      background: #f1f5f9;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* ── Header ── */
+    header {
+      background: #0f172a; color: #f8fafc;
+      padding: 0.6rem 1rem;
+      display: flex; align-items: center; gap: 0.75rem;
+      flex-shrink: 0;
+    }
+    header h1 { font-size: 1rem; font-weight: 700; margin: 0; }
+    .editor-badge {
+      background: #b45309; color: #fff;
+      font-size: 0.65rem; font-weight: 700; letter-spacing: 0.5px;
+      padding: 2px 8px; border-radius: 999px;
+    }
+    .header-hint { font-size: 0.75rem; color: #94a3b8; margin-left: auto; }
+
+    /* ── Body: grid | panel ── */
+    .body { flex: 1; display: flex; min-height: 0; }
+
+    /* ── Grid scroll area ── */
+    .grid-scroll { flex: 1; overflow: auto; padding: 1rem; background: #f8fafc; }
+
+    /* ── CSS grid ──
+     * Column 1 = row-header (50px). Cols 2..N+1 = data cells.
+     * Row 1 = col-header (30px). Rows 2..M+1 = data cells. */
+    #grid {
+      display: inline-grid;
+      gap: 2px;
+      background: #d1d5db;
+      border: 2px solid #d1d5db;
+      border-radius: 8px;
+      overflow: hidden;
+      user-select: none;
+    }
+
+    /* ── Header cells ── */
+    .corner, .col-head, .row-head {
+      background: #e9ecef;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 11px; font-weight: 700; color: #6b7280;
+    }
+    .col-head.int-col   { color: #374151; font-size: 12px; }
+    .col-head.half-col  { color: #9ca3af; font-size: 10px; font-weight: 500; }
+    .row-head           { color: #374151; }
+
+    /* ── Data cells ── */
+    .cell {
+      background: #ffffff;
+      position: relative;
+      transition: background .08s;
+      min-width: 0;
+    }
+    .cell.empty:hover  { background: #f0f9ff; }
+    .cell.drag-target  { background: #dbeafe; outline: 2px solid #3b82f6; outline-offset: -2px; z-index: 10; }
+    .cell.drag-target.occupied { background: #fde68a; outline-color: #d97706; } /* swap hint */
+
+    /* ── Node cards ── */
+    .node {
+      position: absolute;
+      inset: 3px;
+      border: 2px solid #9e9e9e;
+      border-radius: 6px;
+      background: #fff;
+      padding: 5px 6px;
+      cursor: grab;
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      z-index: 2;
+      overflow: hidden;
+    }
+    .node:active { cursor: grabbing; }
+    .node.dragging { opacity: 0.25; }
+
+    .node .n-code {
+      font-size: 9px; font-weight: 700; letter-spacing: 0.3px;
+      padding: 1px 5px; border-radius: 999px;
+      background: rgba(0,0,0,0.08);
+      align-self: flex-start; white-space: nowrap;
+    }
+    .node .n-label {
+      font-size: 9.5px; font-weight: 600; line-height: 1.25;
+      color: #1e293b;
+    }
+    .node .n-pos {
+      font-size: 8.5px; color: #9ca3af; margin-top: auto; font-family: monospace;
+    }
+
+    /* Track colours */
+    .track-A { border-color: #1e88e5; background: #e3f2fd; }
+    .track-B { border-color: #43a047; background: #e8f5e9; }
+    .track-C { border-color: #fb8c00; background: #fff3e0; }
+    .track-D { border-color: #8e24aa; background: #f3e5f5; }
+
+    /* ── Right panel ── */
+    .panel {
+      width: 290px; flex-shrink: 0;
+      background: #fff; border-left: 1px solid #e2e8f0;
+      display: flex; flex-direction: column; overflow: hidden;
+    }
+    .panel-head {
+      padding: 0.7rem 1rem;
+      font-size: 0.8rem; font-weight: 700;
+      border-bottom: 1px solid #e2e8f0;
+      background: #f8fafc; flex-shrink: 0;
+      display: flex; align-items: center; gap: 0.5rem;
+    }
+    .panel-head .changed-count {
+      margin-left: auto;
+      font-size: 0.7rem; color: #b45309; font-weight: 600;
+    }
+    .panel-body { flex: 1; overflow-y: auto; padding: 0.75rem 1rem; }
+
+    /* Position table */
+    .pos-table { width: 100%; border-collapse: collapse; font-size: 0.75rem; margin-bottom: 1rem; }
+    .pos-table th {
+      text-align: left; color: #6b7280; font-weight: 600;
+      padding: 3px 5px; border-bottom: 1px solid #e2e8f0; font-size: 0.7rem;
+    }
+    .pos-table td { padding: 3px 5px; border-bottom: 1px solid #f1f5f9; }
+    .pos-table tr.changed td { color: #b45309; font-weight: 700; }
+    .track-pip {
+      display: inline-block; width: 8px; height: 8px;
+      border-radius: 50%; vertical-align: middle; margin-right: 3px;
+    }
+
+    /* JSON output */
+    .json-section label {
+      font-size: 0.72rem; font-weight: 700; color: #475569;
+      display: block; margin-bottom: 4px;
+    }
+    .json-box {
+      font-family: monospace; font-size: 0.68rem;
+      background: #f8fafc; border: 1px solid #e2e8f0;
+      border-radius: 6px; padding: 0.5rem;
+      white-space: pre; overflow: auto;
+      max-height: 260px; color: #334155;
+    }
+    .btn-row { display: flex; gap: 0.5rem; margin-top: 0.5rem; }
+    .btn {
+      flex: 1; padding: 5px 0;
+      border: none; border-radius: 6px; cursor: pointer;
+      font-size: 0.72rem; font-weight: 600;
+    }
+    .btn-primary { background: #0f172a; color: #fff; }
+    .btn-primary:hover { background: #1e293b; }
+    .btn-secondary { background: #f1f5f9; color: #475569; border: 1px solid #e2e8f0; }
+    .btn-secondary:hover { background: #e2e8f0; }
+  </style>
+</head>
+<body>
+
+<header>
+  <h1>SNT Pipeline Map — Grid Editor</h1>
+  <span class="editor-badge">DRAG &amp; DROP</span>
+  <span class="header-hint">Drag nodes to rearrange · drop on another node to swap · copy JSON when done</span>
+</header>
+
+<div class="body">
+  <div class="grid-scroll">
+    <div id="grid"></div>
+  </div>
+  <aside class="panel">
+    <div class="panel-head">
+      Node Positions
+      <span class="changed-count" id="changedLabel"></span>
+    </div>
+    <div class="panel-body">
+      <table class="pos-table">
+        <thead>
+          <tr><th></th><th>Code</th><th>Row</th><th>Col</th></tr>
+        </thead>
+        <tbody id="posBody"></tbody>
+      </table>
+      <div class="json-section">
+        <label>Positions JSON (paste over "nodes" row/col in pipeline_map.json):</label>
+        <div class="json-box" id="jsonBox"></div>
+        <div class="btn-row">
+          <button class="btn btn-primary" id="copyBtn">Copy JSON</button>
+          <button class="btn btn-secondary" id="resetBtn">Reset</button>
+        </div>
+      </div>
+    </div>
+  </aside>
+</div>
+
+<script>
+/* ── Node definitions (from pipeline_map.json) ──────────────────────────── */
+var NODES = [
+  {id:"snt_dhis2_extract",                           code:"A.1",   label:"DHIS2 Extract",                    track:"A", row:0, col:5},
+  {id:"snt_dhis2_formatting",                        code:"A.2",   label:"DHIS2 Formatting",                 track:"A", row:1, col:5},
+  {id:"snt_dhis2_outliers_imputation_magic_glasses", code:"A.3.1", label:"Outliers — Magic Glasses",  track:"A", row:2, col:0},
+  {id:"snt_dhis2_outliers_imputation_mean",          code:"A.3.2", label:"Outliers — Mean",           track:"A", row:2, col:1},
+  {id:"snt_dhis2_outliers_imputation_median",        code:"A.3.3", label:"Outliers — Median",         track:"A", row:2, col:2},
+  {id:"snt_dhis2_outliers_imputation_iqr",           code:"A.3.4", label:"Outliers — IQR",            track:"A", row:2, col:3},
+  {id:"snt_dhis2_outliers_imputation_path",          code:"A.3.5", label:"Outliers — PATH",           track:"A", row:2, col:4},
+  {id:"snt_dhis2_reporting_rate_dataelement",        code:"A.4.1", label:"Reporting Rate — DE",       track:"A", row:3, col:1.5},
+  {id:"snt_dhis2_reporting_rate_dataset",            code:"A.4.2", label:"Reporting Rate — DS",       track:"A", row:3, col:2.5},
+  {id:"snt_dhis2_population_transformation",         code:"A.5",   label:"Population Transf.",               track:"A", row:3, col:6},
+  {id:"snt_dhis2_incidence",                         code:"A.6",   label:"Incidence",                        track:"A", row:4, col:5},
+  {id:"snt_seasonality_cases",                       code:"A.7",   label:"Seasonality — Cases",       track:"A", row:4, col:6},
+  {id:"snt_worldpop_extract",                        code:"B.1",   label:"WorldPop Extract",                 track:"B", row:2, col:7},
+  {id:"snt_map_extracts",                            code:"B.2",   label:"MAP Extracts",                     track:"B", row:4, col:7},
+  {id:"snt_healthcare_access",                       code:"B.3",   label:"Healthcare Access",                track:"B", row:4, col:8},
+  {id:"snt_dhs_indicators",                          code:"C.1",   label:"DHS Indicators",                   track:"C", row:2, col:9},
+  {id:"snt_era5_climate_data",                       code:"D.1",   label:"ERA5 Climate Data",                track:"D", row:2, col:10},
+  {id:"snt_seasonality_rainfall",                    code:"D.2",   label:"Seasonality — Rainfall",    track:"D", row:4, col:10},
+];
+
+/* ── Grid config ────────────────────────────────────────────────────────── */
+/* Double-resolution columns so fractional positions (1.5, 2.5) are first-class.
+ * Visual column V = actual column * 2.
+ * We show 24 visual columns → actual cols 0 … 11 (room beyond the current max=10). */
+var VCOLS = 24;   /* visual columns 0..23 */
+var VROWS = 7;    /* rows 0..6 (current max=4; 2 extra for rearranging) */
+var CELL_W = 72;  /* px per visual column */
+var CELL_H = 90;  /* px per row */
+var HDR_W  = 42;  /* row-header width */
+var HDR_H  = 30;  /* col-header height */
+
+/* ── Mutable state ──────────────────────────────────────────────────────── */
+/* Maps nodeId → {row, col} (actual coords). */
+var state = {};
+var ORIG  = {};
+NODES.forEach(function(n) {
+  state[n.id] = { row: n.row, col: n.col };
+  ORIG[n.id]  = { row: n.row, col: n.col };
+});
+
+var nodeById = {};
+NODES.forEach(function(n){ nodeById[n.id] = n; });
+
+/* Convert actual col ↔ visual col index */
+function a2v(c) { return c * 2; }    /* actual → visual */
+function v2a(v) { return v / 2; }    /* visual → actual */
+
+/* Find node at (row, actualCol), or null */
+function nodeAt(row, col) {
+  for (var id in state) {
+    var s = state[id];
+    if (s.row === row && s.col === col) return nodeById[id];
+  }
+  return null;
+}
+
+/* Track colours for the dot in the panel */
+var TRACK_COLOR = { A:"#1e88e5", B:"#43a047", C:"#fb8c00", D:"#8e24aa" };
+
+/* ── Drag state ─────────────────────────────────────────────────────────── */
+var dragging = null;   /* id of node being dragged */
+
+/* ── Render everything ──────────────────────────────────────────────────── */
+function render() {
+  renderGrid();
+  renderPanel();
+}
+
+function renderGrid() {
+  var g = document.getElementById("grid");
+
+  /* Set CSS grid template */
+  g.style.gridTemplateColumns = HDR_W + "px " + ("repeat(" + VCOLS + "," + CELL_W + "px)");
+  g.style.gridTemplateRows    = HDR_H + "px " + ("repeat(" + VROWS + "," + CELL_H + "px)");
+
+  g.innerHTML = "";
+
+  /* Corner */
+  g.appendChild(makeEl("div", "corner"));
+
+  /* Column headers — every even visual col is an integer actual col */
+  for (var v = 0; v < VCOLS; v++) {
+    var actual = v2a(v);
+    var isInt  = (actual % 1 === 0);
+    var ch = makeEl("div", "col-head " + (isInt ? "int-col" : "half-col"));
+    ch.textContent = isInt ? String(actual) : "\xBD";   /* integer or ½ */
+    g.appendChild(ch);
+  }
+
+  /* Rows */
+  for (var r = 0; r < VROWS; r++) {
+    /* Row header */
+    var rh = makeEl("div", "row-head");
+    rh.textContent = "R" + r;
+    g.appendChild(rh);
+
+    /* Data cells */
+    for (var v = 0; v < VCOLS; v++) {
+      var actualCol = v2a(v);
+      var n = nodeAt(r, actualCol);
+      var cell = makeEl("div", "cell" + (n ? "" : " empty"));
+      cell.dataset.row  = r;
+      cell.dataset.vcol = v;
+      attachDropHandlers(cell, r, actualCol);
+
+      if (n) {
+        var card = makeNodeCard(n);
+        if (n.id === dragging) card.classList.add("dragging");
+        cell.appendChild(card);
+      }
+
+      g.appendChild(cell);
+    }
+  }
+}
+
+function makeNodeCard(n) {
+  var s = state[n.id];
+  var card = makeEl("div", "node track-" + n.track);
+  card.draggable = true;
+  card.dataset.id = n.id;
+  card.innerHTML =
+    '<span class="n-code">' + esc(n.code) + '</span>' +
+    '<span class="n-label">' + esc(n.label) + '</span>' +
+    '<span class="n-pos">r' + s.row + ' c' + s.col + '</span>';
+
+  card.addEventListener("dragstart", function(e) {
+    dragging = n.id;
+    e.dataTransfer.setData("text/plain", n.id);
+    e.dataTransfer.effectAllowed = "move";
+    /* Delay class addition so the ghost image captures the normal look */
+    requestAnimationFrame(render);
+  });
+  card.addEventListener("dragend", function() {
+    dragging = null;
+    render();
+  });
+  return card;
+}
+
+function attachDropHandlers(cell, row, actualCol) {
+  cell.addEventListener("dragover", function(e) {
+    if (!dragging) return;
+    e.preventDefault();
+    e.dataTransfer.dropEffect = "move";
+    var targetNode = nodeAt(row, actualCol);
+    cell.classList.add("drag-target");
+    if (targetNode && targetNode.id !== dragging) {
+      cell.classList.add("occupied");
+    } else {
+      cell.classList.remove("occupied");
+    }
+  });
+  cell.addEventListener("dragleave", function() {
+    cell.classList.remove("drag-target", "occupied");
+  });
+  cell.addEventListener("drop", function(e) {
+    e.preventDefault();
+    cell.classList.remove("drag-target", "occupied");
+    var id = e.dataTransfer.getData("text/plain") || dragging;
+    if (!id) return;
+
+    var targetNode = nodeAt(row, actualCol);
+    if (targetNode && targetNode.id !== id) {
+      /* Swap: put target where dragged node was */
+      var fromPos = state[id];
+      state[targetNode.id] = { row: fromPos.row, col: fromPos.col };
+    }
+    state[id] = { row: row, col: actualCol };
+    dragging = null;
+    render();
+  });
+}
+
+/* ── Panel ──────────────────────────────────────────────────────────────── */
+function renderPanel() {
+  var tbody = document.getElementById("posBody");
+  tbody.innerHTML = "";
+  var changedCount = 0;
+
+  NODES.forEach(function(n) {
+    var s = n.id in state ? state[n.id] : ORIG[n.id];
+    var o = ORIG[n.id];
+    var changed = s.row !== o.row || s.col !== o.col;
+    if (changed) changedCount++;
+
+    var tr = document.createElement("tr");
+    if (changed) tr.className = "changed";
+    tr.innerHTML =
+      '<td><span class="track-pip" style="background:' + TRACK_COLOR[n.track] + '"></span></td>' +
+      '<td>' + esc(n.code) + '</td>' +
+      '<td>' + s.row + '</td>' +
+      '<td>' + s.col + '</td>';
+    tbody.appendChild(tr);
+  });
+
+  document.getElementById("changedLabel").textContent =
+    changedCount > 0 ? changedCount + " moved" : "";
+
+  /* JSON output — just the id/row/col for each node */
+  var lines = NODES.map(function(n) {
+    var s = state[n.id] || ORIG[n.id];
+    return '  {"id":"' + n.id + '","row":' + s.row + ',"col":' + s.col + '}';
+  });
+  document.getElementById("jsonBox").textContent =
+    "[\n" + lines.join(",\n") + "\n]";
+}
+
+/* ── Buttons ─────────────────────────────────────────────────────────────── */
+document.getElementById("copyBtn").addEventListener("click", function() {
+  var text = document.getElementById("jsonBox").textContent;
+  navigator.clipboard.writeText(text).then(function() {
+    var btn = document.getElementById("copyBtn");
+    var orig = btn.textContent;
+    btn.textContent = "Copied ✓";
+    setTimeout(function(){ btn.textContent = orig; }, 1500);
+  }).catch(function() {
+    /* fallback: select the text */
+    var box = document.getElementById("jsonBox");
+    var range = document.createRange();
+    range.selectNodeContents(box);
+    window.getSelection().removeAllRanges();
+    window.getSelection().addRange(range);
+  });
+});
+
+document.getElementById("resetBtn").addEventListener("click", function() {
+  NODES.forEach(function(n){ state[n.id] = { row: ORIG[n.id].row, col: ORIG[n.id].col }; });
+  render();
+});
+
+/* ── Helpers ─────────────────────────────────────────────────────────────── */
+function makeEl(tag, cls) {
+  var el = document.createElement(tag);
+  if (cls) el.className = cls;
+  return el;
+}
+function esc(s) {
+  return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+}
+
+/* ── Go ──────────────────────────────────────────────────────────────────── */
+render();
+</script>
+</body>
+</html>

@@ -1,0 +1,1102 @@
+/* SNT Pipelines Orchestrator — Cockpit UI.
+ *
+ * Focused, one-step-at-a-time guided walkthrough. Left: a slim progress rail
+ * (whole journey + "you are here"). Center: the focused step (deps, params,
+ * run, outputs). Derived from design/wireframes/orchestrator_wireframe_cockpit.html,
+ * with the wireframe's mock form/output markup replaced by the real engine's
+ * classes (.finput, .btn-primary, .sb-runstatus, .extlink, …) so the generated
+ * parameter form + live outputs look right.
+ */
+:root {
+  --ink: #23262b;
+  --soft: #5c626b;
+  --faint: #8b919b;
+  --line: #d7dade;
+  --line-soft: #e8eaed;
+  --paper: #fff;
+  --bg: #eef0f3;
+  --panel: #f7f8fa;
+  --A: #3559c7;
+  --B: #1f9e8e;
+  --C: #8453c9;
+  --D: #c0473b;
+  --ok: #2e7d4f;
+  --fail: #c0392b;
+  --run: #b8860b;
+  --sans:
+    -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial,
+    sans-serif;
+  --mono: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+}
+* {
+  box-sizing: border-box;
+}
+html,
+body {
+  margin: 0;
+  height: 100%;
+}
+body {
+  background: var(--bg);
+  font-family: var(--sans);
+  color: var(--ink);
+  font-size: 14px;
+  line-height: 1.45;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ---------- app bar ---------- */
+.appbar {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  gap: 14px;
+  padding: 11px 20px;
+  background: var(--paper);
+  border-bottom: 1px solid var(--line);
+}
+.appbar h1 {
+  font-size: 15px;
+  margin: 0;
+  font-weight: 700;
+  justify-self: start;
+}
+.appbar .ws {
+  font-size: 12px;
+  color: var(--soft);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 4px 12px;
+  background: var(--panel);
+}
+.appbar .nav {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  justify-self: center;
+}
+.appbar-right {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  justify-self: end;
+}
+.appbar .stepcount {
+  font-size: 12px;
+  color: var(--soft);
+  font-weight: 600;
+}
+.appbar .nbtn {
+  border: 1px solid var(--line);
+  background: var(--paper);
+  border-radius: 7px;
+  padding: 7px 13px;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--ink);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.appbar .nbtn:hover {
+  background: var(--panel);
+}
+.appbar .nbtn.primary {
+  background: var(--ink);
+  color: #fff;
+  border-color: var(--ink);
+}
+.appbar .nbtn[disabled] {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+/* language toggle (EN / FR) */
+.langtoggle {
+  display: inline-flex;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  overflow: hidden;
+  background: var(--paper);
+}
+.langtoggle .langbtn {
+  border: 0;
+  background: transparent;
+  color: var(--soft);
+  font: inherit;
+  font-size: 11.5px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  padding: 6px 11px;
+  cursor: pointer;
+}
+.langtoggle .langbtn + .langbtn {
+  border-left: 1px solid var(--line);
+}
+.langtoggle .langbtn:hover {
+  background: var(--panel);
+}
+.langtoggle .langbtn.is-active {
+  background: var(--ink);
+  color: #fff;
+}
+
+.shell {
+  display: flex;
+  height: calc(100vh - 53px);
+  min-height: 560px;
+}
+
+/* ---------- LEFT RAIL ---------- */
+.rail {
+  flex: 0 0 312px;
+  background: var(--panel);
+  border-right: 1px solid var(--line);
+  overflow: auto;
+  padding: 14px 0 30px;
+}
+.rail .railhead {
+  padding: 4px 18px 12px;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--faint);
+  font-weight: 700;
+}
+.grp {
+  margin: 6px 0 2px;
+}
+.grp .glabel {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 18px 5px;
+  font-size: 10.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--soft);
+  font-weight: 700;
+}
+.grp .glabel .tk {
+  width: 9px;
+  height: 9px;
+  border-radius: 3px;
+}
+.ritem {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 18px 8px 30px;
+  cursor: pointer;
+  border-left: 9px solid transparent;
+}
+.ritem:hover {
+  background: #eef1f6;
+}
+.ritem.here {
+  background: #eef1f6;
+  border-left-color: var(--track, var(--ink));
+}
+.ritem.here .rlabel {
+  font-weight: 700;
+}
+.ritem .sg {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  border: 1.6px solid var(--faint);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+  font-weight: 700;
+  flex: none;
+  background: #fff;
+}
+.ritem .rlabel {
+  font-size: 12.5px;
+  color: var(--ink);
+  min-width: 0;
+}
+.ritem .rcode {
+  font-family: var(--mono);
+  font-size: 10.5px;
+  color: var(--faint);
+  font-weight: 700;
+}
+.ritem .rmeta {
+  font-size: 10px;
+  color: var(--faint);
+}
+.ritem.locked .rlabel,
+.ritem.locked .rcode,
+.ritem.missing .rlabel,
+.ritem.missing .rcode {
+  color: var(--faint);
+}
+.ritem .here-tag {
+  margin-left: auto;
+  font-size: 15px;
+  letter-spacing: 0.05em;
+  color: var(--soft);
+  font-weight: 700;
+  white-space: nowrap;
+}
+/* Center the status glyph inside its box in every context (the rail already
+   does this on .ritem .sg; this covers the smaller dep-chip / pill / alt glyphs,
+   which otherwise fall to the top-left of their box). */
+.sg {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* status glyph colors */
+.sg.ok {
+  background: var(--ok);
+  border-color: var(--ok);
+  color: #fff;
+}
+.sg.fail {
+  background: #fff;
+  border-color: var(--fail);
+  color: var(--fail);
+}
+.sg.run {
+  border-style: dashed;
+  border-color: var(--run);
+  color: var(--run);
+}
+.sg.none {
+  color: var(--faint);
+}
+.sg.missing {
+  color: var(--faint);
+  border-style: dashed;
+}
+.sg.locked {
+  border-style: dashed;
+  background: #eceef1;
+  color: var(--faint);
+}
+
+/* ---------- CENTER COCKPIT ---------- */
+.cockpit-wrap {
+  flex: 1 1 auto;
+  overflow: auto;
+  padding: 26px 30px 60px;
+}
+.cockpit {
+  max-width: 1200px;
+  margin: 0 auto;
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  box-shadow: 0 1px 0 rgba(0, 0, 0, 0.03);
+  overflow: hidden;
+}
+.ck-top {
+  padding: 20px 26px 18px;
+  border-bottom: 1px solid var(--line-soft);
+  position: relative;
+}
+.ck-top .breadcrumb {
+  font-size: 11.5px;
+  color: var(--faint);
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin-bottom: 8px;
+}
+.ck-top .breadcrumb .tk {
+  width: 10px;
+  height: 10px;
+  border-radius: 3px;
+}
+.ck-top h2 {
+  margin: 0;
+  font-size: 23px;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+}
+.ck-top .ck-ohname {
+  margin-top: 3px;
+  font-size: 11.5px;
+  font-weight: 400;
+  color: var(--faint);
+}
+.ck-top .chips {
+  display: flex;
+  gap: 7px;
+  margin-top: 11px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+.chip {
+  font-size: 10px;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  font-weight: 700;
+  border-radius: 11px;
+  padding: 3px 10px;
+}
+.chip.type {
+  background: #eceef1;
+  color: var(--soft);
+}
+.chip.stage {
+  background: #fff;
+  border: 1px solid var(--line);
+  color: var(--faint);
+}
+.statuspill {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 12px;
+  font-weight: 600;
+  border-radius: 11px;
+  padding: 3px 11px 3px 5px;
+}
+.statuspill .sg {
+  width: 18px;
+  height: 18px;
+  font-size: 10px;
+}
+.statuspill.ok {
+  background: #e7f3ec;
+  color: var(--ok);
+}
+.statuspill.fail {
+  background: #fbeae8;
+  color: var(--fail);
+}
+.statuspill.run {
+  background: #fbf3df;
+  color: var(--run);
+}
+.statuspill.none {
+  background: #eceef1;
+  color: var(--soft);
+}
+.statuspill.missing,
+.statuspill.locked {
+  background: #eceef1;
+  color: var(--faint);
+}
+/* Clickable pill (links to the run's OpenHEXA page). */
+.statuspill-link {
+  text-decoration: none;
+  cursor: pointer;
+  transition: filter 0.12s ease;
+}
+.statuspill-link:hover {
+  filter: brightness(0.96);
+  text-decoration: none;
+}
+.statuspill-link .arr {
+  font-size: 11px;
+  opacity: 0.75;
+}
+
+/* README / link row directly under the pipeline description. */
+.sb-links {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.ck-body {
+  padding: 20px 26px 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+}
+.sec h4 {
+  margin: 0 0 10px;
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--faint);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.sec h4::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: var(--line-soft);
+}
+.desc {
+  font-size: 14px;
+  color: var(--soft);
+  line-height: 1.55;
+  margin: 0;
+}
+
+/* collapsible section boxes (JS adds .sec-collapsible + .sec-toggle + caret) */
+.sec-collapsible {
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--panel);
+  overflow: hidden;
+}
+.sec-collapsible > h4.sec-toggle {
+  margin: 0;
+  padding: 13px 16px;
+  cursor: pointer;
+  user-select: none;
+}
+.sec-collapsible > h4.sec-toggle:hover {
+  background: #eef1f6;
+}
+.sec-collapsible.is-collapsed > h4.sec-toggle:hover {
+  background: #eef1f6;
+}
+.sec-collapsible .sec-body {
+  padding: 2px 16px 16px;
+}
+.sec-collapsible.is-collapsed .sec-body {
+  display: none;
+}
+.sec-caret {
+  width: 0;
+  height: 0;
+  border-left: 5px solid var(--faint);
+  border-top: 4px solid transparent;
+  border-bottom: 4px solid transparent;
+  display: inline-block;
+  transition: transform 0.15s ease;
+  flex-shrink: 0;
+}
+.sec-collapsible:not(.is-collapsed) > h4.sec-toggle .sec-caret {
+  transform: rotate(90deg);
+}
+
+/* dependency context */
+.deps {
+  display: flex;
+  gap: 24px;
+  flex-wrap: wrap;
+}
+.deps .col {
+  flex: 1 1 200px;
+  min-width: 180px;
+}
+.deps .col .lab {
+  font-size: 10.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--faint);
+  font-weight: 700;
+  margin-bottom: 7px;
+}
+.depchip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  border: 1px solid var(--line);
+  background: var(--panel);
+  border-radius: 7px;
+  padding: 5px 9px;
+  margin: 0 6px 6px 0;
+  cursor: pointer;
+}
+.depchip .sg {
+  width: 16px;
+  height: 16px;
+  font-size: 9px;
+  border-width: 1.4px;
+}
+.depchip.soft {
+  border-style: dashed;
+  color: var(--soft);
+}
+.depchip .cd {
+  font-family: var(--mono);
+  font-size: 10.5px;
+  color: var(--faint);
+  font-weight: 700;
+}
+.none-note {
+  font-size: 12px;
+  color: var(--faint);
+  font-style: italic;
+}
+
+/* alternative chooser */
+.mutex-note {
+  font-size: 11.5px;
+  color: var(--faint);
+  margin: 0 0 10px;
+}
+.alts {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 10px;
+}
+.alt {
+  position: relative;
+  border: 1.6px solid var(--line);
+  border-radius: 10px;
+  padding: 11px 12px;
+  cursor: pointer;
+  background: var(--paper);
+}
+.alt:hover {
+  border-color: var(--soft);
+}
+.alt.sel {
+  border-color: var(--A);
+  box-shadow: 0 0 0 3px rgba(53, 89, 199, 0.13);
+}
+.alt .radio {
+  width: 15px;
+  height: 15px;
+  border-radius: 50%;
+  border: 1.6px solid var(--faint);
+  position: absolute;
+  top: 11px;
+  right: 11px;
+}
+.alt.sel .radio {
+  border-color: var(--A);
+  background: radial-gradient(circle at center, var(--A) 0 4px, #fff 5px);
+}
+.alt .acode {
+  font-family: var(--mono);
+  font-size: 10px;
+  color: var(--faint);
+  font-weight: 700;
+}
+.alt .atitle {
+  font-weight: 700;
+  font-size: 13px;
+  margin: 3px 0 5px;
+  padding-right: 18px;
+}
+.alt .adesc {
+  font-size: 11px;
+  color: var(--faint);
+  line-height: 1.4;
+  min-height: 30px;
+}
+.alt .astat {
+  font-size: 10.5px;
+  margin-top: 8px;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  color: var(--soft);
+}
+.alt .astat .sg {
+  width: 15px;
+  height: 15px;
+  font-size: 9px;
+  border-width: 1.4px;
+}
+.alt.greyed {
+  background: #f1f2f4;
+  border-style: dashed;
+  opacity: 0.75;
+  cursor: not-allowed;
+}
+.alt .inuse {
+  position: absolute;
+  bottom: 9px;
+  right: 10px;
+  font-size: 8px;
+  letter-spacing: 0.05em;
+  color: #fff;
+  background: var(--ok);
+  border-radius: 3px;
+  padding: 1px 5px;
+  font-weight: 700;
+}
+
+/* ---------- parameters (real engine form) ---------- */
+.ex-note {
+  font-size: 11px;
+  color: var(--faint);
+  font-style: italic;
+  margin: -2px 0 12px;
+}
+.sb-form {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+.flabel {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--ink);
+}
+.flabel .req,
+.flabel-inline .req {
+  color: #9a7b1a;
+  font-weight: 700;
+}
+.finput {
+  font: inherit;
+  font-size: 12.5px;
+  color: var(--ink);
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  padding: 9px 11px;
+  background: var(--paper);
+  width: 100%;
+  box-sizing: border-box;
+  transition:
+    border-color 0.12s ease,
+    box-shadow 0.12s ease;
+}
+.finput:focus {
+  outline: none;
+  border-color: var(--A);
+  box-shadow: 0 0 0 3px rgba(53, 89, 199, 0.15);
+}
+select.finput {
+  cursor: pointer;
+}
+.field-bool .fcheck {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  cursor: pointer;
+}
+.field-bool .finput {
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+  accent-color: var(--A);
+  cursor: pointer;
+}
+.flabel-inline {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--ink);
+}
+.fchecks {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px 16px;
+}
+.fcheck-sm {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: #334155;
+  cursor: pointer;
+}
+.fcheck-sm input {
+  accent-color: var(--A);
+  cursor: pointer;
+}
+.fhelp {
+  font-size: 11px;
+  color: var(--faint);
+  line-height: 1.4;
+}
+
+/* ---------- run + outputs ---------- */
+.runrow {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+.btn-primary {
+  font: inherit;
+  border: 2px solid var(--A);
+  background: var(--A);
+  color: #fff;
+  border-radius: 9px;
+  padding: 12px 26px;
+  font-size: 14.5px;
+  font-weight: 700;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+}
+.btn-primary:hover {
+  filter: brightness(1.06);
+}
+.btn-primary:disabled,
+.btn-primary.is-busy {
+  background: #eceef1;
+  border-color: var(--line);
+  color: var(--faint);
+  cursor: not-allowed;
+  filter: none;
+}
+.btn-primary.rerun {
+  background: #fff;
+  color: var(--A);
+}
+.btn-secondary {
+  font: inherit;
+  font-size: 12.5px;
+  font-weight: 600;
+  cursor: pointer;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--panel);
+  color: var(--ink);
+  padding: 10px 16px;
+  transition:
+    border-color 0.12s ease,
+    background 0.12s ease;
+}
+.btn-secondary:hover {
+  border-color: var(--A);
+  background: #f0f4ff;
+}
+.btn-secondary.is-active {
+  background: #334155;
+  border-color: #334155;
+  color: #f8fafc;
+}
+.runhint {
+  font-size: 11.5px;
+  color: var(--faint);
+}
+.sb-runstatus {
+  margin-top: 4px;
+  font-size: 13px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  line-height: 1.4;
+  width: 100%;
+}
+.sb-runstatus .rs-glyph {
+  font-weight: 700;
+}
+/* Follow-up guidance under a run error (e.g. "refresh the catalogue"). Its own
+   full-width flex item so it sits on its own line, in a lighter weight than the
+   error itself. */
+.sb-runstatus .rs-hint {
+  flex: 0 0 100%;
+  font-weight: 400;
+}
+.sb-runstatus .rs-hint a {
+  color: inherit;
+  font-weight: 600;
+  text-decoration: underline;
+}
+.sb-runstatus small {
+  font-weight: 400;
+  color: var(--faint);
+}
+.sb-runstatus .run-link {
+  font-weight: 600;
+  color: var(--A);
+  text-decoration: none;
+}
+.sb-runstatus .run-link:hover {
+  text-decoration: underline;
+}
+.sb-runstatus.rs-run {
+  color: #1565c0;
+}
+.sb-runstatus.rs-ok {
+  color: var(--ok);
+}
+.sb-runstatus.rs-err {
+  color: var(--fail);
+}
+.sb-runstatus.rs-warn {
+  color: #b26a00;
+}
+.sb-runstatus .rs-glyph.spin {
+  display: inline-block;
+  animation: rs-pulse 1.1s ease-in-out infinite;
+}
+@keyframes rs-pulse {
+  0%,
+  100% {
+    opacity: 0.35;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+.sb-config {
+  margin-top: 10px;
+  padding: 11px;
+  border-radius: 8px;
+  background: #0f172a;
+  color: #e2e8f0;
+  font-family: var(--mono);
+  font-size: 11.5px;
+  line-height: 1.45;
+  white-space: pre-wrap;
+  word-break: break-word;
+  max-height: 280px;
+  overflow: auto;
+}
+.sb-config.has-errors {
+  background: #7f1d1d;
+  color: #fee2e2;
+}
+
+.outputs {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.extlink {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  font-size: 12.5px;
+  color: var(--ink);
+  border: 1px solid var(--line);
+  background: var(--panel);
+  border-radius: 8px;
+  padding: 9px 12px;
+  text-decoration: none;
+}
+.extlink:hover {
+  background: #eef1f6;
+  border-color: var(--A);
+}
+.extlink.busy {
+  opacity: 0.6;
+  pointer-events: none;
+}
+.extlink .ic {
+  width: 21px;
+  height: 21px;
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  color: var(--soft);
+  background: #fff;
+  flex-shrink: 0;
+}
+.extlink-txt {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.3;
+  min-width: 0;
+}
+.extlink-txt small {
+  color: var(--faint);
+  font-size: 10.5px;
+}
+.extlink .arr {
+  margin-left: auto;
+  color: var(--faint);
+}
+.sb-muted {
+  margin: 0;
+  font-size: 12.5px;
+  color: var(--faint);
+  line-height: 1.45;
+}
+
+/* inline HTML-report preview (F6 embed) */
+.sb-report-embed {
+  margin-top: 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--panel);
+  overflow: hidden;
+}
+.sb-report-head {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 9px 12px;
+}
+.sb-report-title {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--ink);
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.sb-report-title .ic {
+  width: 21px;
+  height: 21px;
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  color: var(--soft);
+  background: #fff;
+  flex-shrink: 0;
+}
+.sb-report-toggle {
+  margin-left: auto;
+  padding: 6px 12px;
+  flex-shrink: 0;
+}
+.sb-report-body {
+  border-top: 1px solid var(--line);
+  padding: 10px 12px;
+}
+.sb-report-frame {
+  width: 100%;
+  height: 600px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: #fff;
+  display: block;
+}
+.sb-report-bar {
+  margin-top: 8px;
+  font-size: 12px;
+}
+.sb-report-openlink {
+  color: var(--A);
+  text-decoration: none;
+  font-weight: 600;
+}
+.sb-report-openlink:hover {
+  text-decoration: underline;
+}
+
+/* alternative-group notice (in-use / running / superseded) */
+.sb-altnote {
+  font-size: 12px;
+  font-weight: 600;
+  border-radius: 8px;
+  padding: 8px 11px;
+  line-height: 1.4;
+}
+.sb-altnote.is-current {
+  background: #e7f3ec;
+  color: var(--ok);
+}
+.sb-altnote.running {
+  background: #fbf3df;
+  color: var(--run);
+}
+.sb-altnote.superseded {
+  background: #eceef1;
+  color: var(--soft);
+}
+
+/* not-installed (greyed) step */
+.sb-missing {
+  background: #f7f8fa;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 13px 15px;
+  font-size: 13px;
+  color: var(--soft);
+  line-height: 1.5;
+}
+.sb-missing p {
+  margin: 0 0 8px;
+}
+.sb-missing p:last-child {
+  margin-bottom: 0;
+}
+
+/* ---------- footer nav ---------- */
+.ck-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 26px 20px;
+  border-top: 1px solid var(--line-soft);
+  margin-top: 6px;
+}
+.ck-foot .fbtn {
+  border: 1px solid var(--line);
+  background: var(--paper);
+  border-radius: 9px;
+  padding: 11px 20px;
+  font-size: 13.5px;
+  font-weight: 700;
+  color: var(--ink);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+.ck-foot .fbtn:hover {
+  background: var(--panel);
+}
+.ck-foot .fbtn.primary {
+  background: var(--ink);
+  color: #fff;
+  border-color: var(--ink);
+}
+.ck-foot .fbtn[disabled] {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+.ck-foot .fcenter {
+  font-size: 11.5px;
+  color: var(--faint);
+  text-align: center;
+  flex: 1;
+  padding: 0 12px;
+}
+
+/* boot / error placeholder */
+.ck-boot {
+  padding: 40px 26px;
+  text-align: center;
+  color: var(--faint);
+  font-size: 13px;
+}
+/* Actionable link inside the boot panel (e.g. "install the generator"). The
+   panel text is deliberately faint, so the link has to lift out of it. */
+.ck-boot a {
+  display: inline-block;
+  margin-top: 10px;
+  color: var(--ink);
+  font-weight: 600;
+  text-decoration: underline;
+}
+
+/* ---------- responsive ---------- */
+@media (max-width: 820px) {
+  .shell {
+    flex-direction: column;
+    height: auto;
+  }
+  .rail {
+    flex: none;
+    width: 100%;
+    border-right: none;
+    border-bottom: 1px solid var(--line);
+    max-height: 220px;
+  }
+  .cockpit-wrap {
+    padding: 18px 14px 40px;
+  }
+  .appbar {
+    flex-wrap: wrap;
+  }
+}

@@ -1,0 +1,447 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>SNT Pipelines Orchestrator — Focused Cockpit Wireframe (Concept C)</title>
+<style>
+  /* ---------------------------------------------------------------
+     CONCEPT C · FOCUSED COCKPIT (guided walkthrough)
+     One pipeline in focus at a time. A slim progress rail on the left
+     shows the whole journey + "you are here"; the large central panel
+     carries everything for the focused step (deps, params, run, outputs).
+     Back / Next walk the recommended order. Mutually-exclusive groups
+     (A.3 outliers, A.4 reporting) appear as ONE "choose one" step.
+     Data: snt_app_dev/orchestrator/pipeline_map.json
+  ----------------------------------------------------------------*/
+  :root{
+    --ink:#23262b; --soft:#5c626b; --faint:#8b919b;
+    --line:#d7dade; --line-soft:#e8eaed; --paper:#fff;
+    --bg:#eef0f3; --panel:#f7f8fa;
+    --A:#3559C7; --B:#1F9E8E; --C:#8453C9; --D:#C0473B;
+    --ok:#2e7d4f; --fail:#c0392b; --run:#b8860b;
+    --sans:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    --mono:"SFMono-Regular",Consolas,"Liberation Mono",Menlo,monospace;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%}
+  body{background:var(--bg);font-family:var(--sans);color:var(--ink);font-size:14px;line-height:1.45;-webkit-font-smoothing:antialiased}
+  .wf-banner{background:repeating-linear-gradient(45deg,#dcdcdc,#dcdcdc 10px,#d2d2d2 10px,#d2d2d2 20px);color:#444;font-size:11px;letter-spacing:.12em;text-transform:uppercase;text-align:center;padding:5px 8px;border-bottom:1px solid var(--line)}
+
+  /* app bar */
+  .appbar{display:flex;align-items:center;gap:14px;padding:11px 20px;background:var(--paper);border-bottom:1px solid var(--line)}
+  .appbar .logo{width:30px;height:30px;border:2px solid var(--ink);border-radius:6px;display:flex;align-items:center;justify-content:center;font-weight:700}
+  .appbar h1{font-size:15px;margin:0;font-weight:700}
+  .appbar .ws{font-size:12px;color:var(--soft);border:1px solid var(--line);border-radius:14px;padding:4px 12px;background:var(--panel)}
+  .appbar .nav{margin-left:auto;display:flex;align-items:center;gap:10px}
+  .appbar .stepcount{font-size:12px;color:var(--soft);font-weight:600}
+  .appbar .nbtn{border:1px solid var(--line);background:var(--paper);border-radius:7px;padding:7px 13px;font-size:12.5px;font-weight:600;color:var(--ink);cursor:pointer;display:flex;align-items:center;gap:6px}
+  .appbar .nbtn:hover{background:var(--panel)}
+  .appbar .nbtn.primary{background:var(--ink);color:#fff;border-color:var(--ink)}
+  .appbar .nbtn[disabled]{opacity:.4;cursor:not-allowed}
+
+  .shell{display:flex;height:calc(100vh - 36px - 53px);min-height:620px}
+
+  /* ---------- LEFT RAIL ---------- */
+  .rail{flex:0 0 312px;background:var(--panel);border-right:1px solid var(--line);overflow:auto;padding:14px 0 30px}
+  .rail .railhead{padding:4px 18px 12px;font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:var(--faint);font-weight:700}
+  .grp{margin:6px 0 2px}
+  .grp .glabel{display:flex;align-items:center;gap:8px;padding:8px 18px 5px;font-size:10.5px;text-transform:uppercase;letter-spacing:.06em;color:var(--soft);font-weight:700}
+  .grp .glabel .tk{width:9px;height:9px;border-radius:3px}
+  .ritem{position:relative;display:flex;align-items:center;gap:10px;padding:8px 18px 8px 30px;cursor:pointer;border-left:3px solid transparent}
+  .ritem:hover{background:#eef1f6}
+  .ritem.here{background:#e9eefb;border-left-color:var(--A)}
+  .ritem.here .rlabel{font-weight:700}
+  .ritem .sg{width:20px;height:20px;border-radius:50%;border:1.6px solid var(--faint);display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;flex:none;background:#fff}
+  .ritem .rlabel{font-size:12.5px;color:var(--ink);min-width:0}
+  .ritem .rcode{font-family:var(--mono);font-size:10.5px;color:var(--faint);font-weight:700}
+  .ritem .rmeta{font-size:10px;color:var(--faint)}
+  .ritem.locked .rlabel,.ritem.locked .rcode{color:var(--faint)}
+  .ritem .here-tag{margin-left:auto;font-size:9px;letter-spacing:.05em;color:var(--A);font-weight:700;white-space:nowrap}
+  /* connecting spine */
+  .grp .spine{position:absolute}
+  /* status glyph colors */
+  .sg.ok{background:var(--ok);border-color:var(--ok);color:#fff}
+  .sg.fail{background:#fff;border-color:var(--fail);color:var(--fail)}
+  .sg.run{border-style:dashed;border-color:var(--run);color:var(--run)}
+  .sg.none{color:var(--faint)}
+  .sg.locked{border-style:dashed;background:#eceef1;color:var(--faint)}
+
+  /* ---------- CENTER COCKPIT ---------- */
+  .cockpit-wrap{flex:1 1 auto;overflow:auto;padding:26px 30px 60px}
+  .cockpit{max-width:780px;margin:0 auto;background:var(--paper);border:1px solid var(--line);border-radius:14px;box-shadow:0 1px 0 rgba(0,0,0,.03);overflow:hidden}
+  .ck-top{padding:20px 26px 18px;border-bottom:1px solid var(--line-soft);position:relative}
+  .ck-top .breadcrumb{font-size:11.5px;color:var(--faint);font-weight:600;letter-spacing:.04em;display:flex;align-items:center;gap:7px;margin-bottom:8px}
+  .ck-top .breadcrumb .tk{width:10px;height:10px;border-radius:3px}
+  .ck-top h2{margin:0;font-size:23px;font-weight:800;letter-spacing:-.01em}
+  .ck-top .chips{display:flex;gap:7px;margin-top:11px;flex-wrap:wrap;align-items:center}
+  .chip{font-size:10px;letter-spacing:.07em;text-transform:uppercase;font-weight:700;border-radius:11px;padding:3px 10px}
+  .chip.type{background:#eceef1;color:var(--soft)}
+  .chip.stage{background:#fff;border:1px solid var(--line);color:var(--faint)}
+  .statuspill{display:inline-flex;align-items:center;gap:7px;font-size:12px;font-weight:600;border-radius:11px;padding:3px 11px 3px 5px}
+  .statuspill .sg{width:18px;height:18px;font-size:10px}
+  .statuspill.ok{background:#e7f3ec;color:var(--ok)} .statuspill.fail{background:#fbeae8;color:var(--fail)}
+  .statuspill.run{background:#fbf3df;color:var(--run)} .statuspill.none{background:#eceef1;color:var(--soft)}
+  .statuspill.locked{background:#eceef1;color:var(--faint)}
+
+  .ck-body{padding:20px 26px 8px;display:flex;flex-direction:column;gap:22px}
+  .sec h4{margin:0 0 10px;font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--faint);display:flex;align-items:center;gap:8px}
+  .sec h4::after{content:"";flex:1;height:1px;background:var(--line-soft)}
+  .desc{font-size:14px;color:var(--soft);line-height:1.55;margin:0}
+
+  /* dependency context */
+  .deps{display:flex;gap:24px;flex-wrap:wrap}
+  .deps .col{flex:1 1 200px;min-width:180px}
+  .deps .col .lab{font-size:10.5px;text-transform:uppercase;letter-spacing:.06em;color:var(--faint);font-weight:700;margin-bottom:7px}
+  .depchip{display:inline-flex;align-items:center;gap:6px;font-size:12px;border:1px solid var(--line);background:var(--panel);border-radius:7px;padding:5px 9px;margin:0 6px 6px 0;cursor:pointer}
+  .depchip .sg{width:16px;height:16px;font-size:9px;border-width:1.4px}
+  .depchip.soft{border-style:dashed;color:var(--soft)}
+  .depchip .cd{font-family:var(--mono);font-size:10.5px;color:var(--faint);font-weight:700}
+  .none-note{font-size:12px;color:var(--faint);font-style:italic}
+
+  /* alternative chooser */
+  .alts{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px}
+  .alt{position:relative;border:1.6px solid var(--line);border-radius:10px;padding:11px 12px;cursor:pointer;background:var(--paper)}
+  .alt:hover{border-color:var(--soft)}
+  .alt.sel{border-color:var(--A);box-shadow:0 0 0 3px rgba(53,89,199,.13)}
+  .alt .radio{width:15px;height:15px;border-radius:50%;border:1.6px solid var(--faint);position:absolute;top:11px;right:11px}
+  .alt.sel .radio{border-color:var(--A);background:radial-gradient(circle at center,var(--A) 0 4px,#fff 5px)}
+  .alt .acode{font-family:var(--mono);font-size:10px;color:var(--faint);font-weight:700}
+  .alt .atitle{font-weight:700;font-size:13px;margin:3px 0 5px;padding-right:18px}
+  .alt .adesc{font-size:11px;color:var(--faint);line-height:1.4;min-height:30px}
+  .alt .astat{font-size:10.5px;margin-top:8px;display:flex;align-items:center;gap:5px;color:var(--soft)}
+  .alt .astat .sg{width:15px;height:15px;font-size:9px;border-width:1.4px}
+  .alt.greyed{background:#f1f2f4;border-style:dashed;opacity:.75;cursor:not-allowed}
+  .alt .inuse{position:absolute;bottom:9px;right:10px;font-size:8px;letter-spacing:.05em;color:#fff;background:var(--ok);border-radius:3px;padding:1px 5px;font-weight:700}
+  .mutex-note{font-size:11.5px;color:var(--faint);margin:0 0 10px}
+
+  /* params */
+  .ex-note{font-size:11px;color:var(--faint);font-style:italic;margin:-2px 0 12px}
+  .field{display:flex;flex-direction:column;gap:5px;margin-bottom:14px}
+  .field label{font-size:12.5px;font-weight:600}
+  .field label .req{color:#aa5; color:#9a7b1a;font-weight:700}
+  .field .help{font-size:11px;color:var(--faint);line-height:1.35}
+  .control{border:1px solid var(--line);background:var(--paper);border-radius:7px;padding:9px 11px;font-size:12.5px;color:var(--ink);display:flex;align-items:center;font-family:var(--mono)}
+  .control.select::after{content:"▾";margin-left:auto;color:var(--faint);font-family:var(--sans)}
+  .control.placeholder{color:var(--faint)}
+  .twocol{display:flex;gap:12px}.twocol .field{flex:1}
+  .check{display:flex;align-items:flex-start;gap:9px;font-size:12.5px;margin-bottom:12px}
+  .check .box{width:16px;height:16px;border:1.6px solid var(--soft);border-radius:4px;display:flex;align-items:center;justify-content:center;font-size:11px;margin-top:1px}
+  .check .box.on{background:var(--A);border-color:var(--A);color:#fff}
+  .check .help{font-size:11px;color:var(--faint)}
+  .check .stack{display:flex;flex-direction:column;gap:1px}
+
+  /* run + outputs */
+  .runrow{display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+  .runbtn{border:2px solid var(--A);background:var(--A);color:#fff;border-radius:9px;padding:12px 26px;font-size:14.5px;font-weight:700;cursor:pointer;display:inline-flex;align-items:center;gap:9px}
+  .runbtn:hover{filter:brightness(1.06)}
+  .runbtn.locked{background:#eceef1;border-color:var(--line);color:var(--faint);cursor:not-allowed}
+  .runbtn.rerun{background:#fff;color:var(--A)}
+  .runhint{font-size:11.5px;color:var(--faint)}
+  .outputs{display:flex;flex-direction:column;gap:8px}
+  .extlink{display:flex;align-items:center;gap:9px;font-size:12.5px;color:var(--ink);border:1px solid var(--line);background:var(--panel);border-radius:8px;padding:9px 12px;text-decoration:none}
+  .extlink:hover{background:#eef1f6}
+  .extlink .ic{width:21px;height:21px;border:1px solid var(--line);border-radius:5px;display:flex;align-items:center;justify-content:center;font-size:11px;color:var(--soft);background:#fff}
+  .extlink .arr{margin-left:auto;color:var(--faint)}
+  .extlink small{color:var(--faint);display:block;font-size:10.5px}
+
+  .ck-foot{display:flex;align-items:center;justify-content:space-between;padding:16px 26px 20px;border-top:1px solid var(--line-soft);margin-top:6px}
+  .ck-foot .fbtn{border:1px solid var(--line);background:var(--paper);border-radius:9px;padding:11px 20px;font-size:13.5px;font-weight:700;color:var(--ink);cursor:pointer;display:inline-flex;align-items:center;gap:8px}
+  .ck-foot .fbtn:hover{background:var(--panel)}
+  .ck-foot .fbtn.primary{background:var(--ink);color:#fff;border-color:var(--ink)}
+  .ck-foot .fbtn[disabled]{opacity:.4;cursor:not-allowed}
+  .ck-foot .fcenter{font-size:11.5px;color:var(--faint)}
+</style>
+</head>
+<body>
+  <div class="wf-banner">Wireframe · low-fidelity — Concept C (Focused Cockpit / guided walkthrough) — for UX review only</div>
+
+  <header class="appbar">
+    <div class="logo">≋</div>
+    <h1>SNT Pipelines Orchestrator</h1>
+    <div class="ws">Workspace: <b>snt-app-dev</b></div>
+    <div class="nav">
+      <span class="stepcount" id="stepcount">Step 3 of 13</span>
+      <button class="nbtn" id="backBtn">◂ Back</button>
+      <button class="nbtn primary" id="nextBtn">Next ▸</button>
+    </div>
+  </header>
+
+  <div class="shell">
+    <nav class="rail" id="rail"></nav>
+    <div class="cockpit-wrap"><div class="cockpit" id="cockpit"></div></div>
+  </div>
+
+<script>
+/* ---------- map data (from pipeline_map.json) ---------- */
+const NODES=[
+ {id:"snt_dhis2_extract",code:"A.1",label:"DHIS2 Extract",type:"mandatory",row:0,col:5,track:"A",desc:"Extracts DHIS2 pyramid, routine analytics, population, shapes and reporting rates for a period."},
+ {id:"snt_dhis2_formatting",code:"A.2",label:"DHIS2 Formatting",type:"mandatory",row:1,col:5,track:"A",desc:"Processes and formats the DHIS2 extracts (pyramid, shapes, routine data) for the SNT workflow."},
+ {id:"snt_dhis2_outliers_imputation_magic_glasses",code:"A.3",label:"Outliers: Magic Glasses",type:"alternative",group:"a3_outliers",row:2,col:0,track:"A",desc:"Outlier detection and imputation using the Magic Glasses (MAD-based) method."},
+ {id:"snt_dhis2_outliers_imputation_mean",code:"A.3",label:"Outliers: Mean",type:"alternative",group:"a3_outliers",row:2,col:1,track:"A",desc:"Outlier detection and imputation using the mean ± k×SD method."},
+ {id:"snt_dhis2_outliers_imputation_median",code:"A.3",label:"Outliers: Median",type:"alternative",group:"a3_outliers",row:2,col:2,track:"A",desc:"Outlier detection and imputation using the median ± k×MAD method."},
+ {id:"snt_dhis2_outliers_imputation_iqr",code:"A.3",label:"Outliers: IQR",type:"alternative",group:"a3_outliers",row:2,col:3,track:"A",desc:"Outlier detection and imputation using the IQR (inter-quartile range) method."},
+ {id:"snt_dhis2_outliers_imputation_path",code:"A.3",label:"Outliers: PATH",type:"alternative",group:"a3_outliers",row:2,col:4,track:"A",desc:"Outlier detection and imputation using the PATH method (mean ± 10×SD)."},
+ {id:"snt_dhis2_reporting_rate_dataelement",code:"A.4",label:"Reporting Rate: Data element",type:"alternative",group:"a4_reporting_rate",row:3,col:1.5,track:"A",desc:"Reporting rate computed from routine data elements."},
+ {id:"snt_dhis2_reporting_rate_dataset",code:"A.4",label:"Reporting Rate: Dataset",type:"alternative",group:"a4_reporting_rate",row:3,col:2.5,track:"A",desc:"Reporting rate from DHIS2 dataset-level rate indicators."},
+ {id:"snt_dhis2_population_transformation",code:"A.5",label:"Population Transformation",type:"facultative",row:3,col:6,track:"A",desc:"Scales, projects and disaggregates DHIS2 population by demographic group."},
+ {id:"snt_dhis2_incidence",code:"A.6",label:"DHIS2 Incidence",type:"output",row:4,col:5,track:"A",desc:"Computes malaria case metrics and yearly incidence from routine HMIS data."},
+ {id:"snt_seasonality_cases",code:"A.7",label:"Seasonality – Cases",type:"output",row:4,col:6,track:"A",desc:"Classifies case seasonality at ADM2 from routine confirmed-malaria data."},
+ {id:"snt_worldpop_extract",code:"B.1",label:"WorldPop Extract",type:"facultative",row:2,col:7,track:"B",desc:"Extracts WorldPop population raster data for the country."},
+ {id:"snt_map_extracts",code:"B.2",label:"MAP Extracts",type:"output",row:4,col:7,track:"B",desc:"Extracts Malaria Atlas Project rasters and computes zonal statistics."},
+ {id:"snt_healthcare_access",code:"B.3",label:"Access to Health Care",type:"output",row:4,col:8,track:"B",desc:"Computes access-to-care metrics from facilities, population and catchments."},
+ {id:"snt_dhs_indicators",code:"C.1",label:"DHS Indicators",type:"facultative",row:2,col:9,track:"C",desc:"Computes DHS survey-based indicators for the SNT process."},
+ {id:"snt_era5_climate_data",code:"D.1",label:"ERA5 Climate Data",type:"facultative",row:2,col:10,track:"D",desc:"Extracts ERA5 climate data from the Copernicus Climate Data Store."},
+ {id:"snt_seasonality_rainfall",code:"D.2",label:"ERA5 Seasonality – Rainfall",type:"output",row:4,col:10,track:"D",desc:"Computes rainfall seasonality metrics from ERA5 climate data."}
+];
+const EDGES=[
+ ["snt_dhis2_extract","snt_dhis2_formatting","solid"],
+ ["snt_dhis2_formatting","snt_dhis2_outliers_imputation_magic_glasses","solid"],
+ ["snt_dhis2_formatting","snt_dhis2_outliers_imputation_mean","solid"],
+ ["snt_dhis2_formatting","snt_dhis2_outliers_imputation_median","solid"],
+ ["snt_dhis2_formatting","snt_dhis2_outliers_imputation_iqr","solid"],
+ ["snt_dhis2_formatting","snt_dhis2_outliers_imputation_path","solid"],
+ ["snt_dhis2_formatting","snt_dhis2_reporting_rate_dataelement","solid"],
+ ["snt_dhis2_formatting","snt_dhis2_reporting_rate_dataset","solid"],
+ ["snt_dhis2_outliers_imputation_magic_glasses","snt_dhis2_reporting_rate_dataelement","optional"],
+ ["snt_dhis2_outliers_imputation_mean","snt_dhis2_reporting_rate_dataelement","optional"],
+ ["snt_dhis2_outliers_imputation_median","snt_dhis2_reporting_rate_dataelement","optional"],
+ ["snt_dhis2_outliers_imputation_iqr","snt_dhis2_reporting_rate_dataelement","optional"],
+ ["snt_dhis2_outliers_imputation_path","snt_dhis2_reporting_rate_dataelement","optional"],
+ ["snt_dhis2_outliers_imputation_magic_glasses","snt_dhis2_reporting_rate_dataset","optional"],
+ ["snt_dhis2_outliers_imputation_mean","snt_dhis2_reporting_rate_dataset","optional"],
+ ["snt_dhis2_outliers_imputation_median","snt_dhis2_reporting_rate_dataset","optional"],
+ ["snt_dhis2_outliers_imputation_iqr","snt_dhis2_reporting_rate_dataset","optional"],
+ ["snt_dhis2_outliers_imputation_path","snt_dhis2_reporting_rate_dataset","optional"],
+ ["snt_dhis2_formatting","snt_dhis2_population_transformation","solid"],
+ ["snt_dhis2_formatting","snt_dhis2_incidence","solid"],
+ ["snt_dhis2_formatting","snt_seasonality_cases","solid"],
+ ["snt_dhis2_formatting","snt_worldpop_extract","solid"],
+ ["snt_dhis2_formatting","snt_map_extracts","solid"],
+ ["snt_dhis2_formatting","snt_dhs_indicators","solid"],
+ ["snt_dhis2_formatting","snt_era5_climate_data","solid"],
+ ["snt_era5_climate_data","snt_seasonality_rainfall","solid"],
+ ["snt_dhis2_outliers_imputation_magic_glasses","snt_dhis2_incidence","optional"],
+ ["snt_dhis2_outliers_imputation_mean","snt_dhis2_incidence","optional"],
+ ["snt_dhis2_outliers_imputation_median","snt_dhis2_incidence","optional"],
+ ["snt_dhis2_outliers_imputation_iqr","snt_dhis2_incidence","optional"],
+ ["snt_dhis2_outliers_imputation_path","snt_dhis2_incidence","optional"],
+ ["snt_dhis2_reporting_rate_dataelement","snt_dhis2_incidence","optional"],
+ ["snt_dhis2_reporting_rate_dataset","snt_dhis2_incidence","optional"],
+ ["snt_dhis2_population_transformation","snt_dhis2_incidence","optional"],
+ ["snt_dhs_indicators","snt_dhis2_incidence","optional"],
+ ["snt_dhis2_formatting","snt_healthcare_access","solid"]
+];
+
+/* ---------- sample run state ---------- */
+const ST={
+ snt_dhis2_extract:{st:'ok',date:'2026-06-04 14:22',dur:'6 m 12 s'},
+ snt_dhis2_formatting:{st:'ok',date:'2026-06-04 14:48',dur:'3 m 51 s'},
+ snt_dhis2_outliers_imputation_magic_glasses:{st:'ok',date:'2026-06-05 09:10',dur:'2 m 02 s'},
+ snt_dhis2_outliers_imputation_mean:{st:'none'},
+ snt_dhis2_outliers_imputation_median:{st:'none'},
+ snt_dhis2_outliers_imputation_iqr:{st:'none'},
+ snt_dhis2_outliers_imputation_path:{st:'missing'},
+ snt_dhis2_reporting_rate_dataelement:{st:'fail',date:'2026-06-05 10:02'},
+ snt_dhis2_reporting_rate_dataset:{st:'none'},
+ snt_dhis2_population_transformation:{st:'run',date:'started 11:05'},
+ snt_dhis2_incidence:{st:'none'},
+ snt_seasonality_cases:{st:'none'},
+ snt_worldpop_extract:{st:'ok',date:'2026-06-03 16:20',dur:'4 m 30 s'},
+ snt_map_extracts:{st:'none'},
+ snt_healthcare_access:{st:'none'},
+ snt_dhs_indicators:{st:'none'},
+ snt_era5_climate_data:{st:'ok',date:'2026-06-02 08:00',dur:'9 m 05 s'},
+ snt_seasonality_rainfall:{st:'none'}
+};
+
+const TRK={A:{c:'var(--A)',name:'Track A · DHIS2 core'},B:{c:'var(--B)',name:'Track B · Geo & raster'},C:{c:'var(--C)',name:'Track C · DHS surveys'},D:{c:'var(--D)',name:'Track D · Climate'}};
+const G={ok:'✓',fail:'✕',run:'⟳',none:'○',missing:'⦸',locked:'🔒'};
+const SL={ok:'Succeeded',fail:'Failed',run:'Running…',none:'Never run',missing:'Not installed',locked:'Locked'};
+const STAGE={0:'Extract',1:'Format',2:'Clean & enrich',3:'Derive',4:'Outputs'};
+const byId={}; NODES.forEach(n=>byId[n.id]=n);
+
+/* ---------- build walkthrough steps (collapse alternative groups) ---------- */
+const STEPS=[]; const seenGroup={};
+NODES.forEach(n=>{
+  if(n.group){ if(seenGroup[n.group])return; seenGroup[n.group]=true;
+    const members=NODES.filter(m=>m.group===n.group);
+    STEPS.push({kind:'group',group:n.group,code:n.code,title:groupTitle(n.group),track:n.track,members});
+  } else STEPS.push({kind:'single',code:n.code,title:n.label,track:n.track,node:n});
+});
+function groupTitle(g){return g==='a3_outliers'?'Outliers Imputation':'Reporting Rate';}
+
+/* ---------- dependency helpers (from edges) ---------- */
+const hardParents=id=>EDGES.filter(e=>e[2]==='solid'&&e[1]===id).map(e=>e[0]);
+const softParents=id=>EDGES.filter(e=>e[2]==='optional'&&e[1]===id).map(e=>e[0]);
+const hardChildren=id=>EDGES.filter(e=>e[2]==='solid'&&e[0]===id).map(e=>e[1]);
+const isOk=id=>ST[id].st==='ok';
+function lockedReason(id){
+  const miss=hardParents(id).filter(p=>!isOk(p));
+  return miss.length? miss.map(p=>byId[p].code+' '+byId[p].label):null;
+}
+/* step status for the rail */
+function stepStatus(s){
+  if(s.kind==='single')return ST[s.node.id].st;
+  const sts=s.members.map(m=>ST[m.id].st);
+  if(sts.includes('ok'))return 'ok';
+  if(sts.includes('run'))return 'run';
+  if(sts.every(x=>x==='missing'))return 'missing';
+  if(sts.includes('fail'))return 'fail';
+  return 'none';
+}
+
+/* ---------- state ---------- */
+let CUR=2;                       // start focused on A.3 outliers
+const altSel={a3_outliers:'snt_dhis2_outliers_imputation_magic_glasses', a4_reporting_rate:'snt_dhis2_reporting_rate_dataelement'};
+
+/* ---------- render rail ---------- */
+function renderRail(){
+  const rail=document.getElementById('rail');
+  let h=`<div class="railhead">Stratification process · ${STEPS.length} steps</div>`;
+  let lastTrack=null;
+  STEPS.forEach((s,i)=>{
+    if(s.track!==lastTrack){ lastTrack=s.track;
+      h+=`<div class="grp"><div class="glabel"><span class="tk" style="background:${TRK[s.track].c}"></span>${TRK[s.track].name}</div>`;
+    }
+    const st=stepStatus(s);
+    const repId=s.kind==='single'?s.node.id:altSel[s.group];
+    const locked=lockedReason(repId);
+    const cls=(i===CUR?'here ':'')+(locked&&st==='none'?'locked ':'');
+    const meta=s.kind==='group'?`<div class="rmeta">choose one of ${s.members.length}</div>`:'';
+    h+=`<div class="ritem ${cls}" onclick="go(${i})">`+
+       `<span class="sg ${locked&&st==='none'?'locked':st}">${locked&&st==='none'?G.locked:G[st]}</span>`+
+       `<div style="min-width:0"><div class="rlabel"><span class="rcode">${s.code}</span> ${s.title}</div>${meta}</div>`+
+       (i===CUR?`<span class="here-tag">◂ you are here</span>`:'')+
+       `</div>`;
+    const next=STEPS[i+1];
+    if(!next||next.track!==s.track) h+=`</div>`;
+  });
+  rail.innerHTML=h;
+}
+
+/* ---------- render cockpit ---------- */
+function renderCockpit(){
+  const s=STEPS[CUR];
+  const node=s.kind==='single'?s.node:byId[altSel[s.group]];
+  const st=ST[node.id].st, info=ST[node.id];
+  const locked=lockedReason(node.id);
+  const trackC=TRK[s.track].c;
+  const typeLabel=s.kind==='group'?'Alternative':node.type;
+
+  /* prerequisites + soft inputs + unlocks */
+  const hp=hardParents(node.id), sp=softParents(node.id), hc=hardChildren(node.id);
+  const depCol=(lab,ids,soft)=>{
+    if(!ids.length)return `<div class="col"><div class="lab">${lab}</div><span class="none-note">none</span></div>`;
+    return `<div class="col"><div class="lab">${lab}</div>`+
+      ids.map(id=>{const p=byId[id];const ps=ST[id].st;
+        return `<span class="depchip ${soft?'soft':''}" onclick="goById('${id}')"><span class="sg ${ps}">${G[ps]}</span><span class="cd">${p.code}</span> ${p.label}</span>`;}).join('')+
+      `</div>`;
+  };
+
+  /* status pill */
+  const pill=`<span class="statuspill ${locked&&st==='none'?'locked':st}"><span class="sg ${locked&&st==='none'?'locked':st}">${locked&&st==='none'?G.locked:G[st]}</span>${locked&&st==='none'?'Locked':SL[st]}${info.date&&!(locked&&st==='none')?' · '+info.date:''}${info.dur?' · '+info.dur:''}</span>`;
+
+  /* alternative chooser */
+  let altsHtml='';
+  if(s.kind==='group'){
+    altsHtml=`<div class="sec"><h4>Choose a method</h4>`+
+      `<p class="mutex-note">These are <b>mutually exclusive</b> — running one marks the others as not-in-use for this session.</p>`+
+      `<div class="alts">`+
+      s.members.map(m=>{const ms=ST[m.id].st;const sel=altSel[s.group]===m.id;const miss=ms==='missing';
+        return `<div class="alt ${sel?'sel':''} ${miss?'greyed':''}" ${miss?'':`onclick="pickAlt('${s.group}','${m.id}')"`}>`+
+          `<span class="radio"></span>`+
+          `<div class="acode">${m.code}</div><div class="atitle">${m.label.replace(/^.*?:\s*/,'')}</div>`+
+          `<div class="adesc">${m.desc}</div>`+
+          `<div class="astat"><span class="sg ${ms}">${G[ms]}</span>${SL[ms]}${ST[m.id].date?' · '+ST[m.id].date.slice(5):''}</div>`+
+          (ms==='ok'?`<span class="inuse">IN USE</span>`:'')+
+          `</div>`;}).join('')+
+      `</div></div>`;
+  }
+
+  /* outputs section (only if succeeded) */
+  const outsHtml = st==='ok' ? `<div class="sec"><h4>Latest outputs</h4><div class="outputs">
+      <a class="extlink"><span class="ic">▥</span><span>HTML report<small>rendered notebook for this run</small></span><span class="arr">↗</span></a>
+      <a class="extlink"><span class="ic">▦</span><span>Output dataset<small>open the produced dataset version</small></span><span class="arr">↗</span></a>
+    </div></div>` : '';
+
+  /* run button */
+  const runBtn = (locked&&st==='none')
+    ? `<button class="runbtn locked" disabled>🔒 Locked</button><span class="runhint">Run <b>${locked.join(', ')}</b> first.</span>`
+    : (st==='ok'
+        ? `<button class="runbtn rerun">↻ Re-run${s.kind==='group'?' selected':''}</button><span class="runhint">Last succeeded ${info.date}.</span>`
+        : st==='run'
+          ? `<button class="runbtn locked" disabled>⟳ Running…</button><span class="runhint">Started ${info.date}. Refreshes automatically.</span>`
+          : `<button class="runbtn">▶ Run${s.kind==='group'?' selected method':''}</button>${st==='fail'?'<span class="runhint">Previous attempt failed — check logs, then retry.</span>':''}`);
+
+  const ck=document.getElementById('cockpit');
+  ck.innerHTML=`
+    <div class="ck-top" style="border-top:4px solid ${trackC}">
+      <div class="breadcrumb"><span class="tk" style="background:${trackC}"></span>${TRK[s.track].name} · Stage: ${STAGE[node.row]}</div>
+      <h2>${s.code} ${s.title}</h2>
+      <div class="chips">
+        <span class="chip type">${typeLabel}</span>
+        ${s.kind==='group'?`<span class="chip stage">choose 1 of ${s.members.length}</span>`:''}
+        ${pill}
+      </div>
+    </div>
+    <div class="ck-body">
+      <div class="sec"><p class="desc">${s.kind==='group'?'Pick one method to detect and impute outliers, then configure and run it. The map treats the whole group as a single step.':node.desc}</p></div>
+
+      <div class="sec"><h4>Dependencies</h4>
+        <div class="deps">
+          ${depCol('Requires (hard)',hp,false)}
+          ${depCol('Uses if available (soft)',sp,true)}
+          ${depCol('Unlocks next',hc,false)}
+        </div>
+      </div>
+
+      ${altsHtml}
+
+      <div class="sec"><h4>Parameters${s.kind==='group'?' · '+byId[altSel[s.group]].label.replace(/^.*?:\\s*/,''):''}</h4>
+        <p class="ex-note">Example fields — the real form is generated per pipeline from its @parameter decorators.</p>
+        <div class="field"><label>DHIS2 connection <span class="req">*</span></label><div class="control select placeholder">Select a connection…</div><div class="help">DHIS2 instance to read from.</div></div>
+        <div class="twocol">
+          <div class="field"><label>Period — start <span class="req">*</span></label><div class="control">202401</div><div class="help">YYYYMM</div></div>
+          <div class="field"><label>Period — end <span class="req">*</span></label><div class="control">202412</div><div class="help">YYYYMM</div></div>
+        </div>
+        <div class="check"><span class="box on">✓</span><span class="stack"><b>Overwrite</b><span class="help">Overwrite existing files in the output dataset.</span></span></div>
+        <div class="check"><span class="box"></span><span class="stack"><b>Pull scripts</b><span class="help">Pull latest scripts from the repository before running.</span></span></div>
+      </div>
+
+      <div class="sec"><h4>Run</h4><div class="runrow">${runBtn}</div></div>
+
+      ${outsHtml}
+
+      <div class="sec"><h4>More</h4><div class="outputs">
+        <a class="extlink"><span class="ic">▤</span><span>README on GitHub<small>snt_development / ${node.id}</small></span><span class="arr">↗</span></a>
+        ${st!=='none'?`<a class="extlink"><span class="ic">▶</span><span>Open this run in OpenHEXA<small>logs, messages, full detail</small></span><span class="arr">↗</span></a>`:''}
+      </div></div>
+    </div>
+
+    <div class="ck-foot">
+      <button class="fbtn" id="fBack" ${CUR===0?'disabled':''}>◂ Back</button>
+      <span class="fcenter">Step ${CUR+1} of ${STEPS.length} · ${s.code} ${s.title}</span>
+      <button class="fbtn primary" id="fNext" ${CUR===STEPS.length-1?'disabled':''}>Next ▸</button>
+    </div>`;
+
+  document.getElementById('fBack').onclick=()=>go(CUR-1);
+  document.getElementById('fNext').onclick=()=>go(CUR+1);
+  document.getElementById('stepcount').textContent=`Step ${CUR+1} of ${STEPS.length}`;
+  document.getElementById('backBtn').disabled=CUR===0;
+  document.getElementById('nextBtn').disabled=CUR===STEPS.length-1;
+}
+
+/* ---------- navigation ---------- */
+function go(i){ if(i<0||i>=STEPS.length)return; CUR=i; renderRail(); renderCockpit(); document.querySelector('.cockpit-wrap').scrollTop=0; }
+function goById(id){ const n=byId[id]; const i=STEPS.findIndex(s=> s.kind==='single'?s.node.id===id : s.group===n.group); if(i>=0)go(i); }
+function pickAlt(group,id){ altSel[group]=id; renderRail(); renderCockpit(); }
+
+document.getElementById('backBtn').onclick=()=>go(CUR-1);
+document.getElementById('nextBtn').onclick=()=>go(CUR+1);
+window.addEventListener('keydown',e=>{if(e.key==='ArrowRight')go(CUR+1);if(e.key==='ArrowLeft')go(CUR-1);});
+
+renderRail(); renderCockpit();
+</script>
+</body>
+</html>

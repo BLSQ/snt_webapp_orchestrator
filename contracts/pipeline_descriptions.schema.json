@@ -1,0 +1,31 @@
+{
+  "_description": "Schema reference for webapps/orchestrator/pipeline_descriptions.json — the single, hand-authored source of pipeline description text, identical for every workspace (unlike pipeline_cards.json, which is per-workspace and lives in the workspace bucket). It is part of the flat webapp bundle and is fetched by app.js as a same-origin sibling (fetch('./pipeline_descriptions.json')).",
+
+  "_generation_instructions": [
+    "1. This file is hand-authored by a human (Giulia), not AI-generated — agents should not invent or rewrite description text here without being asked to.",
+    "2. Keyed by pipeline `id` (the Python function name), the same join key used in pipeline_map.json and pipeline_cards.json.",
+    "3. A short paragraph is expected (a few sentences), not a one-liner. Descriptions live only here — pipeline_map.json has no `description` field.",
+    "4. Bump `version` (YYYY-MM-DD) when descriptions change.",
+    "5. Adding a new pipeline to the map? Add its id here too, or the app falls back to an empty description for that node."
+  ],
+
+  "_formatting": [
+    "Values support a small Markdown-lite subset, rendered client-side by app.js (function mdLite): **bold** or __bold__, *italic* or _italic_, and single newlines become <br> line breaks. Nothing else — no headers, links, lists, or raw HTML; anything that isn't one of those markers is escaped and shown literally.",
+    "In JSON, write a literal newline inside the string as \\n, e.g. \"First sentence.\\nSecond sentence.\"."
+  ],
+
+  "_i18n": [
+    "Bilingual (English / French). Each description value is a { \"en\": ..., \"fr\": ... } object; both hold the same Markdown-lite prose, one per language.",
+    "The app resolves the active language via pickLang() and falls back to `en` (then to \"\").",
+    "Backward compatible: a plain string value is still accepted and treated as `en`. New/edited entries should use the { en, fr } object form.",
+    "When adding a pipeline, provide BOTH `en` and `fr`. French drafts are authored/reviewed by Giulia (agents translate on request, per webapps/orchestrator/CLAUDE.md — do not invent description prose unprompted)."
+  ],
+
+
+  "_schema": {
+    "version": "string — date (YYYY-MM-DD), bumped when descriptions change",
+    "descriptions": {
+      "<pipeline_id>": "{ en, fr } object — hand-authored, Markdown-lite-formatted paragraph per language, shown in the sidebar for this node (see _formatting and _i18n). A plain string is also accepted for backward compatibility and treated as `en`."
+    }
+  }
+}

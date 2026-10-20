@@ -1,0 +1,364 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>SNT Pipeline Map — throwaway preview</title>
+<style>
+  :root {
+    --ink: #263238;
+    --muted: #607d8b;
+    --hard: #37474f;     /* hard dependency: dark + thick */
+    --opt: #b0bec5;      /* optional link: light + thin   */
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    color: var(--ink);
+    background: #fafbfc;
+  }
+  header { padding: 18px 28px 14px; border-bottom: 1px solid #e0e0e0; background: #fff; }
+  h1 { margin: 0 0 4px; font-size: 19px; }
+  .sub { color: var(--muted); font-size: 13px; }
+  .toolbar { margin-top: 12px; display: flex; gap: 18px 26px; align-items: center; flex-wrap: wrap; }
+  button {
+    font: inherit; padding: 5px 12px; border: 1px solid #b0bec5; border-radius: 6px;
+    background: #fff; cursor: pointer;
+  }
+  button:hover { background: #eceff1; }
+
+  .legend { display: flex; flex-wrap: wrap; gap: 14px 22px; align-items: center; font-size: 12.5px; color: #455a64; }
+  .legend .group { display: flex; gap: 7px; align-items: center; }
+  .swatch { width: 24px; height: 15px; border-radius: 4px; border: 2px solid; display: inline-block; }
+  .sw-A { background: #e3f2fd; border-color: #1e88e5; }
+  .sw-B { background: #e8f5e9; border-color: #43a047; }
+  .sw-C { background: #fff3e0; border-color: #fb8c00; }
+  .sw-D { background: #f3e5f5; border-color: #8e24aa; }
+  .lineicon { width: 34px; display: inline-block; }
+  .lineicon.hard { border-top: 2.6px solid var(--hard); }
+  .lineicon.opt  { border-top: 1.3px solid var(--opt); }
+
+  .scroller { overflow: auto; padding: 24px 28px 60px; }
+  #canvas { position: relative; }
+  svg.edges { position: absolute; top: 0; left: 0; overflow: visible; }
+
+  .node {
+    position: absolute;
+    border: 2px solid #9e9e9e; border-radius: 8px; background: #fff;
+    padding: 7px 9px; font-size: 12px; line-height: 1.25;
+    box-shadow: 0 1px 2px rgba(0,0,0,.06);
+    cursor: pointer; user-select: none; overflow: visible;
+    transition: opacity .12s, box-shadow .12s;
+  }
+  .node .code {
+    display: inline-block; font-weight: 700; font-size: 10.5px; letter-spacing: .3px;
+    padding: 1px 6px; border-radius: 999px; margin-bottom: 4px; background: rgba(0,0,0,.06);
+  }
+  .node .lbl { font-weight: 600; }
+  .node.track-A { background: #e3f2fd; border-color: #1e88e5; }
+  .node.track-B { background: #e8f5e9; border-color: #43a047; }
+  .node.track-C { background: #fff3e0; border-color: #fb8c00; }
+  .node.track-D { background: #f3e5f5; border-color: #8e24aa; }
+
+  /* type label, top-right corner: filled for mandatory/output, hollow otherwise */
+  .type-badge {
+    position: absolute; top: -9px; right: 8px;
+    font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: .4px;
+    padding: 2px 6px; border-radius: 6px; white-space: nowrap;
+    background: transparent; color: #455a64; border: 1px solid #607d8b;   /* hollow default */
+  }
+  .type-badge.filled { background: #455a64; color: #fff; border-color: #455a64; }
+
+  /* dynamic run-state */
+  .node.locked { opacity: .4; cursor: not-allowed; filter: grayscale(.45); }
+  .node.available:hover { box-shadow: 0 0 0 3px rgba(38,50,56,.16); }
+  .node.completed { border-color: #2e7d32 !important; box-shadow: 0 0 0 3px #2e7d32; }
+  .check {
+    position: absolute; top: -9px; left: -9px; width: 19px; height: 19px;
+    background: #2e7d32; color: #fff; border-radius: 50%;
+    display: none; align-items: center; justify-content: center; font-size: 12px; font-weight: 700;
+  }
+  .node.completed .check { display: flex; }
+
+  .grouplabel { font-size: 11px; font-weight: 700; fill: #546e7a; letter-spacing: .3px; }
+  .notes {
+    margin: 0 28px 28px; padding: 14px 16px; background: #fff;
+    border: 1px solid #e0e0e0; border-radius: 8px; font-size: 12.5px; color: #37474f; line-height: 1.5;
+  }
+  .notes b { color: var(--ink); }
+  .notes code { background: #eceff1; padding: 1px 4px; border-radius: 4px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>SNT Pipeline Map <span class="sub" id="version"></span> <span class="sub">— throwaway interactive preview</span></h1>
+  <div class="sub">Click an <b>available</b> card to mark it run; downstream cards unlock as prerequisites are met. Running one alternative (A.3 / A.4) clears the others in its group.</div>
+  <div class="toolbar">
+    <button id="reset">Reset runs</button>
+    <div class="legend">
+      <div class="group"><span class="swatch sw-A"></span>A · DHIS2</div>
+      <div class="group"><span class="swatch sw-B"></span>B · WorldPop+MAP</div>
+      <div class="group"><span class="swatch sw-C"></span>C · DHS</div>
+      <div class="group"><span class="swatch sw-D"></span>D · ERA5</div>
+      <div class="group"><span class="type-badge filled" style="position:static">type</span>labelled: mandatory / output</div>
+      <div class="group"><span class="lineicon hard"></span>hard (solid)</div>
+      <div class="group"><span class="lineicon opt"></span>optional</div>
+    </div>
+  </div>
+</header>
+
+<div class="scroller"><div id="canvas"></div></div>
+<div class="notes" id="notes"></div>
+
+<script>
+/* ---- Embedded snapshot of pipeline_map.json (v2026-06-24). -------------
+   Self-contained so this file opens directly from disk. If the map changes,
+   re-paste the nodes/edges below (or regenerate this preview). ---------- */
+const MAP = {
+  version: "2026-06-24",
+  nodes: [
+    { id:"snt_dhis2_extract", code:"A.1", label:"DHIS2 Extract", type:"mandatory", row:0, col:5, track:"A", description:"Extracts DHIS2 pyramid, routine analytics, population, shapes, and reporting rates for a period." },
+    { id:"snt_dhis2_formatting", code:"A.2", label:"DHIS2 Formatting", type:"mandatory", row:1, col:5, track:"A", description:"Processes and formats the DHIS2 extracts (pyramid, shapes, routine data) for the SNT workflow." },
+    { id:"snt_dhis2_outliers_imputation_magic_glasses", code:"A.3", label:"Outliers: Magic Glasses", type:"alternative", group:"a3_outliers", row:2, col:0, track:"A", description:"Outlier detection and imputation using the Magic Glasses (MAD-based) method." },
+    { id:"snt_dhis2_outliers_imputation_mean", code:"A.3", label:"Outliers: Mean", type:"alternative", group:"a3_outliers", row:2, col:1, track:"A", description:"Outlier detection and imputation using the mean +/- k x SD method." },
+    { id:"snt_dhis2_outliers_imputation_median", code:"A.3", label:"Outliers: Median", type:"alternative", group:"a3_outliers", row:2, col:2, track:"A", description:"Outlier detection and imputation using the median +/- k x MAD method." },
+    { id:"snt_dhis2_outliers_imputation_iqr", code:"A.3", label:"Outliers: IQR", type:"alternative", group:"a3_outliers", row:2, col:3, track:"A", description:"Outlier detection and imputation using the IQR (inter-quartile range) method." },
+    { id:"snt_dhis2_outliers_imputation_path", code:"A.3", label:"Outliers: PATH", type:"alternative", group:"a3_outliers", row:2, col:4, track:"A", description:"Outlier detection and imputation using the PATH method (mean +/- 10 x SD)." },
+    { id:"snt_dhis2_reporting_rate_dataelement", code:"A.4", label:"Reporting Rate: Data element", type:"alternative", group:"a4_reporting_rate", row:3, col:1.5, track:"A", description:"Reporting rate computed from routine data elements." },
+    { id:"snt_dhis2_reporting_rate_dataset", code:"A.4", label:"Reporting Rate: Dataset", type:"alternative", group:"a4_reporting_rate", row:3, col:2.5, track:"A", description:"Reporting rate from DHIS2 dataset-level rate indicators." },
+    { id:"snt_dhis2_population_transformation", code:"A.5", label:"Population Transformation", type:"facultative", row:3, col:6, track:"A", description:"Scales, projects, and disaggregates DHIS2 population by demographic group." },
+    { id:"snt_dhis2_incidence", code:"A.6", label:"DHIS2 Incidence", type:"output", row:4, col:5, track:"A", description:"Computes malaria case metrics and yearly incidence from routine HMIS data." },
+    { id:"snt_seasonality_cases", code:"A.7", label:"Seasonality - Cases", type:"output", row:4, col:6, track:"A", description:"Classifies case seasonality at ADM2 from routine confirmed-malaria data." },
+    { id:"snt_worldpop_extract", code:"B.1", label:"WorldPop Extract", type:"facultative", row:2, col:7, track:"B", description:"Extracts WorldPop population raster data for the country." },
+    { id:"snt_map_extracts", code:"B.2", label:"MAP Extracts", type:"output", row:4, col:7, track:"B", description:"Extracts Malaria Atlas Project rasters and computes zonal statistics." },
+    { id:"snt_healthcare_access", code:"B.3", label:"Access to Health Care", type:"output", row:4, col:8, track:"B", description:"Computes access-to-care metrics from facilities, population, and catchments." },
+    { id:"snt_dhs_indicators", code:"C.1", label:"DHS Indicators", type:"facultative", row:2, col:9, track:"C", description:"Computes DHS survey-based indicators for the SNT process." },
+    { id:"snt_era5_climate_data", code:"D.1", label:"ERA5 Climate Data", type:"facultative", row:2, col:10, track:"D", description:"Extracts ERA5 climate data from the Copernicus Climate Data Store." },
+    { id:"snt_seasonality_rainfall", code:"D.2", label:"ERA5 Seasonality - Rainfall", type:"output", row:4, col:10, track:"D", description:"Computes rainfall seasonality metrics from ERA5 climate data." }
+  ],
+  edges: [
+    { from:"snt_dhis2_extract", to:"snt_dhis2_formatting", type:"solid" },
+    { from:"snt_dhis2_formatting", to:"snt_dhis2_outliers_imputation_magic_glasses", type:"solid" },
+    { from:"snt_dhis2_formatting", to:"snt_dhis2_outliers_imputation_mean", type:"solid" },
+    { from:"snt_dhis2_formatting", to:"snt_dhis2_outliers_imputation_median", type:"solid" },
+    { from:"snt_dhis2_formatting", to:"snt_dhis2_outliers_imputation_iqr", type:"solid" },
+    { from:"snt_dhis2_formatting", to:"snt_dhis2_outliers_imputation_path", type:"solid" },
+    { from:"snt_dhis2_formatting", to:"snt_dhis2_reporting_rate_dataelement", type:"solid" },
+    { from:"snt_dhis2_formatting", to:"snt_dhis2_reporting_rate_dataset", type:"solid" },
+    { from:"snt_dhis2_outliers_imputation_magic_glasses", to:"snt_dhis2_reporting_rate_dataelement", type:"optional" },
+    { from:"snt_dhis2_outliers_imputation_mean", to:"snt_dhis2_reporting_rate_dataelement", type:"optional" },
+    { from:"snt_dhis2_outliers_imputation_median", to:"snt_dhis2_reporting_rate_dataelement", type:"optional" },
+    { from:"snt_dhis2_outliers_imputation_iqr", to:"snt_dhis2_reporting_rate_dataelement", type:"optional" },
+    { from:"snt_dhis2_outliers_imputation_path", to:"snt_dhis2_reporting_rate_dataelement", type:"optional" },
+    { from:"snt_dhis2_outliers_imputation_magic_glasses", to:"snt_dhis2_reporting_rate_dataset", type:"optional" },
+    { from:"snt_dhis2_outliers_imputation_mean", to:"snt_dhis2_reporting_rate_dataset", type:"optional" },
+    { from:"snt_dhis2_outliers_imputation_median", to:"snt_dhis2_reporting_rate_dataset", type:"optional" },
+    { from:"snt_dhis2_outliers_imputation_iqr", to:"snt_dhis2_reporting_rate_dataset", type:"optional" },
+    { from:"snt_dhis2_outliers_imputation_path", to:"snt_dhis2_reporting_rate_dataset", type:"optional" },
+    { from:"snt_dhis2_formatting", to:"snt_dhis2_population_transformation", type:"solid" },
+    { from:"snt_dhis2_formatting", to:"snt_dhis2_incidence", type:"solid" },
+    { from:"snt_dhis2_formatting", to:"snt_seasonality_cases", type:"solid" },
+    { from:"snt_dhis2_formatting", to:"snt_worldpop_extract", type:"solid" },
+    { from:"snt_dhis2_formatting", to:"snt_map_extracts", type:"solid" },
+    { from:"snt_dhis2_formatting", to:"snt_dhs_indicators", type:"solid" },
+    { from:"snt_dhis2_formatting", to:"snt_era5_climate_data", type:"solid" },
+    { from:"snt_era5_climate_data", to:"snt_seasonality_rainfall", type:"solid" },
+    { from:"snt_dhis2_outliers_imputation_magic_glasses", to:"snt_dhis2_incidence", type:"optional" },
+    { from:"snt_dhis2_outliers_imputation_mean", to:"snt_dhis2_incidence", type:"optional" },
+    { from:"snt_dhis2_outliers_imputation_median", to:"snt_dhis2_incidence", type:"optional" },
+    { from:"snt_dhis2_outliers_imputation_iqr", to:"snt_dhis2_incidence", type:"optional" },
+    { from:"snt_dhis2_outliers_imputation_path", to:"snt_dhis2_incidence", type:"optional" },
+    { from:"snt_dhis2_reporting_rate_dataelement", to:"snt_dhis2_incidence", type:"optional" },
+    { from:"snt_dhis2_reporting_rate_dataset", to:"snt_dhis2_incidence", type:"optional" },
+    { from:"snt_dhis2_population_transformation", to:"snt_dhis2_incidence", type:"optional" },
+    { from:"snt_dhs_indicators", to:"snt_dhis2_incidence", type:"optional" },
+    { from:"snt_dhis2_formatting", to:"snt_healthcare_access", type:"solid" }
+  ]
+};
+
+/* ---- layout ---- */
+const NODE_W = 142, NODE_H = 64, COL_W = 162, ROW_H = 158, PAD_X = 30, PAD_Y = 30;
+const SVGNS = "http://www.w3.org/2000/svg";
+const FILLED_TYPES = new Set(["mandatory", "output"]);
+
+const nodeById = {};
+MAP.nodes.forEach(n => nodeById[n.id] = n);
+
+const nx = n => PAD_X + n.col * COL_W;
+const ny = n => PAD_Y + n.row * ROW_H;
+const ncx = n => nx(n) + NODE_W / 2;
+const ncy = n => ny(n) + NODE_H / 2;
+
+const maxCol = Math.max(...MAP.nodes.map(n => n.col));
+const maxRow = Math.max(...MAP.nodes.map(n => n.row));
+const W = PAD_X * 2 + (maxCol + 1) * COL_W;
+const H = PAD_Y * 2 + (maxRow + 1) * ROW_H;
+
+const canvas = document.getElementById("canvas");
+canvas.style.width = W + "px";
+canvas.style.height = H + "px";
+
+/* group-aware solid prerequisites: bucket incoming solid edges by source's group
+   (un-grouped source = its own bucket); unlocked iff every bucket has >=1 completed run. */
+function isUnlocked(id, completed) {
+  const buckets = {};
+  for (const e of MAP.edges) {
+    if (e.to !== id || e.type !== "solid") continue;
+    const src = nodeById[e.from];
+    const key = src.group || e.from;
+    (buckets[key] = buckets[key] || []).push(e.from);
+  }
+  return Object.values(buckets).every(srcs => srcs.some(s => completed.has(s)));
+}
+
+/* ---- SVG layer: alternative-group boxes (behind) + edges ---- */
+const svg = document.createElementNS(SVGNS, "svg");
+svg.setAttribute("class", "edges");
+svg.setAttribute("width", W);
+svg.setAttribute("height", H);
+svg.innerHTML =
+  '<defs>' +
+    '<marker id="ah-hard" markerWidth="9" markerHeight="9" refX="7.5" refY="3" orient="auto" markerUnits="userSpaceOnUse">' +
+      '<path d="M0,0 L8,3 L0,6 Z" fill="#37474f"/></marker>' +
+    '<marker id="ah-opt" markerWidth="8" markerHeight="8" refX="6.5" refY="2.6" orient="auto" markerUnits="userSpaceOnUse">' +
+      '<path d="M0,0 L6,2.6 L0,5.2 Z" fill="#b0bec5"/></marker>' +
+  '</defs>';
+canvas.appendChild(svg);
+
+const groups = {};
+MAP.nodes.forEach(n => { if (n.type === "alternative" && n.group) (groups[n.group] = groups[n.group] || []).push(n); });
+
+/* geometry of each alternative-group box, so edges can attach to the BOX
+   (the group is treated as a single node) rather than to each member. */
+const groupRects = {};
+Object.entries(groups).forEach(([gid, members]) => {
+  const pad = 12, labelH = 16;
+  const left = Math.min(...members.map(nx)) - pad;
+  const top = Math.min(...members.map(ny)) - pad - labelH;
+  const right = Math.max(...members.map(n => nx(n) + NODE_W)) + pad;
+  const bottom = Math.max(...members.map(n => ny(n) + NODE_H)) + pad;
+  groupRects[gid] = { cx: (left + right) / 2, cy: (top + bottom) / 2, hw: (right - left) / 2, hh: (bottom - top) / 2 };
+  const rect = document.createElementNS(SVGNS, "rect");
+  rect.setAttribute("x", left); rect.setAttribute("y", top);
+  rect.setAttribute("width", right - left); rect.setAttribute("height", bottom - top);
+  rect.setAttribute("rx", 10);
+  rect.setAttribute("fill", "rgba(84,110,122,0.05)");
+  rect.setAttribute("stroke", "#546e7a");
+  rect.setAttribute("stroke-width", "1.6");                      // solid box (no dash)
+  svg.appendChild(rect);
+  const t = document.createElementNS(SVGNS, "text");
+  t.setAttribute("x", left + 10); t.setAttribute("y", top + 12);
+  t.setAttribute("class", "grouplabel");
+  t.textContent = members[0].code + " — choose one";
+  svg.appendChild(t);
+});
+
+/* an edge endpoint resolves to the member's own card, unless the member is in an
+   alternative group — then it resolves to the group box. */
+function anchorOf(id) {
+  const n = nodeById[id];
+  if (n.group && groupRects[n.group])
+    return Object.assign({ key: "grp:" + n.group }, groupRects[n.group]);
+  return { key: id, cx: ncx(n), cy: ncy(n), hw: NODE_W / 2 + 2, hh: NODE_H / 2 + 2 };
+}
+function borderPoint(a, tx, ty) {
+  const dx = tx - a.cx, dy = ty - a.cy;
+  if (!dx && !dy) return [a.cx, a.cy];
+  const s = Math.min(dx ? a.hw / Math.abs(dx) : Infinity, dy ? a.hh / Math.abs(dy) : Infinity);
+  return [a.cx + dx * s, a.cy + dy * s];
+}
+
+/* collapse parallel edges sharing the same (anchor -> anchor, type): the 10
+   A.3->A.4 member edges become ONE A.3-box -> A.4-box line, etc. */
+const drawn = new Set();
+MAP.edges.forEach(e => {
+  const A = anchorOf(e.from), B = anchorOf(e.to);
+  if (A.key === B.key) return;                       // both endpoints in the same group
+  const k = A.key + "|" + B.key + "|" + e.type;
+  if (drawn.has(k)) return;
+  drawn.add(k);
+  const [x1, y1] = borderPoint(A, B.cx, B.cy);
+  const [x2, y2] = borderPoint(B, A.cx, A.cy);
+  const line = document.createElementNS(SVGNS, "line");
+  line.setAttribute("x1", x1); line.setAttribute("y1", y1);
+  line.setAttribute("x2", x2); line.setAttribute("y2", y2);
+  const hard = e.type !== "optional";
+  line.setAttribute("stroke", hard ? "#37474f" : "#b0bec5");   // darker for hard
+  line.setAttribute("stroke-width", hard ? 2.6 : 1.3);          // thicker for hard
+  line.setAttribute("marker-end", hard ? "url(#ah-hard)" : "url(#ah-opt)");
+  svg.appendChild(line);                                        // both solid (no dash)
+});
+
+/* ---- node cards (on top) ---- */
+const nodeEls = {};
+MAP.nodes.forEach(n => {
+  const div = document.createElement("div");
+  div.className = "node track-" + n.track;
+  div.style.left = nx(n) + "px";
+  div.style.top = ny(n) + "px";
+  div.style.width = NODE_W + "px";
+  div.style.minHeight = NODE_H + "px";
+  div.title = (n.description || "") + "\n\n[" + n.type + "]  id: " + n.id;
+  // only mandatory/output carry a visible type label; alternative/facultative are unlabelled
+  const badge = FILLED_TYPES.has(n.type) ? '<span class="type-badge filled">' + n.type + '</span>' : '';
+  div.innerHTML =
+    '<span class="check">&#10003;</span>' + badge +
+    '<span class="code">' + n.code + '</span>' +
+    '<div class="lbl">' + n.label + '</div>';
+  div.addEventListener("click", () => onClick(n));
+  canvas.appendChild(div);
+  nodeEls[n.id] = div;
+});
+
+/* ---- run state ---- */
+let completed = new Set();
+
+function onClick(n) {
+  if (completed.has(n.id)) {
+    completed.delete(n.id);                       // un-run
+  } else if (isUnlocked(n.id, completed)) {
+    if (n.group) {                                // mutex: clear siblings in the same group
+      for (const m of MAP.nodes)
+        if (m.group === n.group && m.id !== n.id) completed.delete(m.id);
+    }
+    completed.add(n.id);
+  }
+  render();
+}
+
+function render() {
+  // cascade: drop completions whose prerequisites are no longer satisfied
+  let changed = true;
+  while (changed) {
+    changed = false;
+    for (const id of [...completed])
+      if (!isUnlocked(id, completed)) { completed.delete(id); changed = true; }
+  }
+  for (const n of MAP.nodes) {
+    const el = nodeEls[n.id];
+    el.classList.remove("locked", "available", "completed");
+    if (completed.has(n.id)) el.classList.add("completed");
+    else if (isUnlocked(n.id, completed)) el.classList.add("available");
+    else el.classList.add("locked");
+  }
+}
+
+document.getElementById("reset").addEventListener("click", () => { completed = new Set(); render(); });
+document.getElementById("version").textContent = "· v" + MAP.version;
+document.getElementById("notes").innerHTML =
+  '<b>How to read this map.</b> Rows = execution stage (top &rarr; bottom); columns separate the parallel tracks. ' +
+  'Cards are <b>coloured by track</b> (A = DHIS2, B = WorldPop+MAP, C = DHS, D = ERA5); only <b>mandatory</b> &amp; ' +
+  '<b>output</b> cards carry a type label (top-right corner) &mdash; alternative &amp; facultative cards are left unlabelled. ' +
+  '<b>Thick dark arrow</b> = hard dependency (upstream must have run first); <b>thin light arrow</b> = optional link ' +
+  '(used if present, but the downstream pipeline can run without it). Both are solid lines. ' +
+  'Solid boxes group <b>alternative</b> pipelines &mdash; run one (running another clears it). An arrow to/from a box ' +
+  'means the dependency applies to the group as a whole (whichever member you run), so the five A.3 / two A.4 edges ' +
+  'collapse into one line each.' +
+  '<br><br><b>A.4 dependency:</b> run A.1 &rarr; A.2 and both A.4 reporting-rate cards unlock &mdash; A.4 now hard-depends ' +
+  'on A.2 (solid). The A.3 &rarr; A.4 link is <i>optional</i> (soft): outlier-imputed data is used if available, but A.4 ' +
+  'can run on A.2 alone.';
+render();
+</script>
+</body>
+</html>

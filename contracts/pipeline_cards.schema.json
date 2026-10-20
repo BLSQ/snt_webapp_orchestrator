@@ -1,0 +1,55 @@
+{
+  "_description": "Output contract for pipeline_cards.json — the per-workspace pipeline catalog that drives the SNT Pipelines Orchestrator's active-vs-greyed nodes and its parameter forms. Read this to interpret the file's structure. The file is NOT part of the repo and NOT part of the deployed webapp bundle: each workspace holds one copy in its own file storage at utils_pipelines/create_pipeline_cards/pipeline_cards/pipeline_cards.json, and the webapp fetches it at page load via a signed URL. Pipeline description text is NOT stored here — see webapps/orchestrator/pipeline_descriptions.json / contracts/pipeline_descriptions.schema.json.",
+
+  "_how_this_file_is_produced": [
+    "The create_pipeline_cards pipeline generates it — agents do NOT hand-build it. Source lives in this repo at pipelines/create_pipeline_cards/ (see its README.md); it must be deployed to, and run in, each workspace that hosts an orchestrator webapp.",
+    "To refresh a workspace's catalog (a pipeline was installed/removed, a parameter changed), re-run that pipeline in the workspace. The webapp picks the new file up on its next page load — no redeploy and no repo commit.",
+    "Output location: <workspace files>/utils_pipelines/create_pipeline_cards/pipeline_cards/pipeline_cards.json, per config.OUTPUT_DIR + config.WEBAPP_CARDS_PATH. The webapp's CARDS_OBJECT_KEY constant (in webapps/orchestrator/app.js) must match this exactly — it is a bucket key, not a repo path. The previous version is archived to a historical/ subfolder with a timestamp on every run.",
+    "Parameters come from each pipeline's deployed current version in that workspace (pipelineByCode.currentVersion.parameters), which is what runPipeline validates against — recorded as parameters_source 'openhexa_deployed'. They are not read from the snt_development GitHub repo, so the catalog cannot drift from the installed version. That version's identity is recorded alongside them as version_name / version_number, so a consumer can tell whether the catalog still matches what is installed now.",
+    "Pipeline ids come from regex-matching @pipeline(\"...\") in the deployed pipeline.py. A pipeline with no deployed version, no pipeline.py (e.g. notebook-based), or a malformed decorator gets id null and is excluded when curation runs.",
+    "Curation — a pipeline is included iff its `id` is a node of the deployed pipeline_map.json AND it exists live in the workspace. Live pipelines that are not map nodes are excluded (the webapp has no node to render them on); map nodes with no live pipeline are simply absent here and render greyed-out. The pipeline reads pipeline_map.json back from the webapp identified by config.WEBAPP_SLUG (the orchestrator webapp), so the DEPLOYED map is the authority — not the repo copy. Curation is not optional: if that webapp is not deployed in the workspace, the run fails rather than emitting an uncurated catalog.",
+    "If several workspace pipelines share the same @pipeline id, all are kept and logged as a warning; openhexa_code distinguishes them. Deprecated duplicates should be cleaned up in the workspace.",
+    "Never commit a pipeline_cards.json to the repo and never add one to the webapp bundle."
+  ],
+
+  "_type_mapping": {
+    "bool":             "Checkbox in the UI.",
+    "int":              "Number input (integer).",
+    "float":            "Number input (decimal).",
+    "str":              "Dropdown if choices present; text input otherwise.",
+    "str+multiple":     "Group of checkboxes when choices present; passes an array in the config object.",
+    "DHIS2Connection":  "Dropdown populated from workspace DHIS2 connections; pass the connection slug.",
+    "CustomConnection": "Dropdown populated from workspace custom connections; pass the connection slug.",
+    "File":             "File path input.",
+    "IASOConnection | PostgreSQLConnection | GCSConnection | S3Connection": "Emitted by the generator (config.PARAMETER_TYPE_MAP) but the app has no dedicated control for them: they fall back to a plain text input where the user types the connection slug."
+  },
+
+  "_schema": {
+    "workspace_slug":  "string — the OpenHEXA workspace slug",
+    "generated_at":    "string — ISO date when this file was generated (YYYY-MM-DD)",
+    "_notes":          "string — free-text note written by the generator (config.NOTES, with the workspace slug filled in). Not read by the app.",
+    "pipelines": [
+      {
+        "id":                "string — Python function name; stable key across workspaces",
+        "name":              "string — human-readable display name for the UI card header",
+        "uuid":              "string — workspace-specific pipeline UUID; NEVER copy across workspaces",
+        "openhexa_code":     "string — OpenHEXA pipeline code/slug; useful when multiple instances of the same pipeline exist in one workspace",
+        "parameters_source": "string — always 'openhexa_deployed': parameters were read from the pipeline's deployed version via the OpenHEXA API, which is what runPipeline validates against. Not read by the app",
+        "version_name":      "string — versionName of the deployed pipeline version these parameters were read from; this is the label the OpenHEXA UI shows for it. Null if the pipeline has no deployed version. Not read by the app.",
+        "version_number":    "integer — versionNumber of that same deployed version. Monotonic, so this is the field to compare against the live pipeline to detect that the catalog has fallen behind (the pipeline's parameters may have changed since). Null if the pipeline has no deployed version. Not read by the app (reserved for a future drift check).",
+        "parameters": [
+          {
+            "key":      "string — parameter key matching the @parameter decorator; used verbatim in the config object",
+            "label":    "string — display label",
+            "help":     "string — help text",
+            "type":     "string — bool | int | float | str | DHIS2Connection | CustomConnection | File | IASOConnection | PostgreSQLConnection | GCSConnection | S3Connection (see _type_mapping)",
+            "required": "boolean — omit if false",
+            "multiple": "boolean — omit if false; when true and type is str, the config value is an array",
+            "default":  "any — omit if null/None",
+            "choices":  "array — omit if absent"
+          }
+        ]
+      }
+    ]
+  }
+}

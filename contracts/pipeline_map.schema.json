@@ -1,0 +1,47 @@
+{
+  "_description": "Schema reference for pipeline_map.json — the WORKSPACE-INDEPENDENT definition of the full SNT pipeline flow map for the orchestrator. It declares every pipeline node, its walkthrough stage, classification, mutual-exclusion grouping, and the directed dependency edges between nodes. The SNT Pipelines Orchestrator webapp renders this map identically across all workspaces. Which nodes are ACTIVE vs GREYED-OUT is decided at runtime by joining node `id` against the workspace's pipeline_cards.json — it is NOT defined here. The file lives at webapps/orchestrator/pipeline_map.json and is deployed as part of the flat webapp bundle. Node description text is NOT stored here — see webapps/orchestrator/pipeline_descriptions.json / contracts/pipeline_descriptions.schema.json.",
+
+  "_generation_instructions": [
+    "1. This file is hand-authored and maintained, not auto-generated. It changes only when the official set of SNT pipelines or their logical relationships change.",
+    "2. Node `id` MUST equal the pipeline's Python function name (the first argument of @pipeline / the repo folder name, e.g. snt_dhis2_extract). This is the join key to pipeline_cards.json.",
+    "3. The ORDER of `nodes` in the array is the walkthrough order: the app lists steps in array order (an alternative group becomes one \"choose one\" step at its first member's position). Set `row` to the walkthrough stage (0=Extract, 1=Format, 2=Clean & enrich, 3=Derive, 4=Outputs) and `track` to the data track (A–D). `col` is a leftover 2D-layout coordinate (see its field doc).",
+    "4. Add one entry to `edges` per direct dependency (a required predecessor / data-flow link). Endpoints reference node `id`. The webapp derives lock/unlock state from edges — do NOT add a separate `req` field on nodes.",
+    "5. For mutually-exclusive alternatives (only one of the set may run), give every member the same `group` string and set type to 'alternative'.",
+    "6. Do NOT duplicate parameter definitions here — those live in pipeline_cards.json. The map carries only `label`/`code` for display, so that greyed-out nodes (absent from the workspace's pipeline_cards.json) still render a name. Do NOT add a `description` field here either — it lives in webapps/orchestrator/pipeline_descriptions.json.",
+    "7. `label`/`code` are the canonical display strings. When a node is active, the workspace card's `name` may override `label` for display. The node's description is looked up separately, by `id`, in webapps/orchestrator/pipeline_descriptions.json.",
+    "8. Edges out of an alternative group are drawn per member: because edges reference individual node ids (there is no group->group edge), a dependency leaving a group is written once per member (e.g. A.3 -> A.6 is 5 edges, one per outlier method). For the unlock semantics of a solid edge out of a group, see the group-aware bucket rule in docs/ARCHITECTURE.md -> Node states."
+  ],
+
+  "_node_types": {
+    "mandatory":   "Core step expected in every analysis. Only A.1 and A.2.",
+    "alternative": "One of a mutually-exclusive set; members share a `group`. Running one marks the others not-run. The 5 A.3 outlier methods and the 2 A.4 reporting-rate methods.",
+    "facultative": "Optional pipeline whose output may itself become an SNT Explorer layer. Covers everything that is neither mandatory nor a mutually-exclusive alternative (e.g. A.5, A.6, A.7, B.1, B.2, B.3, C.1, D.1, D.2)."
+  },
+
+  "_schema": {
+    "version":      "string — date (YYYY-MM-DD) or semver, bumped when the map changes",
+    "grid": {
+      "cols": "int — total number of columns, for canvas sizing (optional)"
+    },
+    "nodes": [
+      {
+        "id":          "string — Python function name; join key to pipeline_cards.json. REQUIRED",
+        "code":        "string — short human code shown as a tag, e.g. 'A.1', 'A.3.1'. REQUIRED",
+        "label":       "canonical display title WITHOUT the code prefix, e.g. 'DHIS2 Extract' (the code, e.g. 'A.1', is carried separately in `code` and shown alongside). REQUIRED. A bilingual { \"en\": ..., \"fr\": ... } object; a plain string (legacy, English-only) is also accepted. The app resolves the active language via pickLang() and falls back to `en`; a plain string is treated as `en`. `code`/`type`/`group`/`row`/`col`/`track` and `ohName` are NOT translated (ohName must match the name shown in OpenHEXA).",
+        "type":        "string — mandatory | alternative | facultative. REQUIRED",
+        "row":         "int — walkthrough stage index: 0=Extract, 1=Format, 2=Clean & enrich, 3=Derive, 4=Outputs (i18n keys `stage.<row>`). Not used for ordering (array order is). Currently only feeds a stage label that is commented out in the UI. REQUIRED",
+        "col":         "number — horizontal position from the former 2D grid layout (fractional values were used to centre a node/group between columns). NOT read by the app; kept so the map can still be rendered in 2D by the design/ tools. REQUIRED",
+        "group":       "string — mutual-exclusion group id; REQUIRED only when type == 'alternative', omit otherwise",
+        "track":       "string — data track, used for the accent color and track label: 'A' (DHIS2) | 'B' (WorldPop & MAP) | 'C' (DHS) | 'D' (ERA5). Optional",
+        "ohName":      "string — the pipeline's display name as shown in OpenHEXA (e.g. from its template). Display-only: rendered as an \"OpenHEXA: <name>\" line in the step panel so users can find the pipeline in the OpenHEXA UI. NOT a join key — matching is by `id`. Never translated. Optional"
+      }
+    ],
+    "edges": [
+      {
+        "from": "string — upstream node id (the prerequisite)",
+        "to":   "string — downstream node id (depends on `from`)",
+        "type": "string — 'solid' or omitted = hard dependency: gates unlocking of `to` (the app treats anything other than 'optional' as gating). 'optional' = soft link: listed as 'uses if available', does not gate."
+      }
+    ]
+  }
+}

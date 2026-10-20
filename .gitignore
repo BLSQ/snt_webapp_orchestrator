@@ -1,0 +1,21 @@
+# Claude Code memory (machine-specific, not for sharing)
+.claude/*
+!.claude/settings.json
+!.claude/hooks/
+.claude/settings.local.json
+
+# Personal scratch / learning notes (local only, not shared)
+ignore/
+
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Editor
+.vscode/
+.idea/
+*.swp
+
+# Cache
+.cache/
