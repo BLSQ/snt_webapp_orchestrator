@@ -63,7 +63,8 @@ var STATUS_QUERY =
   "}";
 
 // Workspace connections — populates the DHIS2Connection / CustomConnection
-// dropdowns in the form. Needs USER_READ; falls back to a text slug input.
+// dropdowns in the form. Needs USER_READ, and the proxy currently refuses the
+// nested fields anyway (OH-2); on failure the form falls back to a text slug input.
 var CONNECTIONS_QUERY =
   "query ($ws: String!) {" +
   "  workspace(slug: $ws) {" +
@@ -592,6 +593,10 @@ var I18N = {
     "form.selectEmpty": "— select —",
     "form.selectConn": "— select connection —",
     "form.connPlaceholder": "connection slug (e.g. dhis2-nmdr-drc)",
+    "form.noConn": "No {type} connection in this workspace. Add one on the {link}, then reload this page.",
+    "form.connTypeDhis2": "DHIS2",
+    "form.connTypeCustom": "custom",
+    "form.connSettingsWords": "OpenHEXA Connections page",
     "form.commaSep": "comma-separated",
     "form.filePath": "workspace file path (optional)",
     // validation
@@ -778,6 +783,10 @@ var I18N = {
     "form.selectEmpty": "— sélectionner —",
     "form.selectConn": "— sélectionner une connexion —",
     "form.connPlaceholder": "identifiant de connexion (ex. dhis2-nmdr-drc)",
+    "form.noConn": "Aucune connexion {type} dans cet espace de travail. Ajoutez-en une sur la {link}, puis rechargez cette page.",
+    "form.connTypeDhis2": "DHIS2",
+    "form.connTypeCustom": "personnalisée",
+    "form.connSettingsWords": "page Connexions d’OpenHEXA",
     "form.commaSep": "séparés par des virgules",
     "form.filePath": "chemin du fichier dans l’espace de travail (optionnel)",
     // validation
@@ -1188,7 +1197,15 @@ async function loadConnections() {
     );
     return;
   }
-  var conns = (data.workspace && data.workspace.connections) || [];
+  // A null workspace means the read did not succeed: leave APP.connections
+  // unset so the form keeps the text input instead of claiming "no connection".
+  if (!data || !data.workspace) {
+    console.warn(
+      "SNT Orchestrator (cockpit) — connections query returned no workspace (form falls back to text slug input).",
+    );
+    return;
+  }
+  var conns = data.workspace.connections || [];
   var byType = {};
   conns.forEach(function (c) {
     (byType[c.type] = byType[c.type] || []).push({
@@ -1294,6 +1311,41 @@ function fieldControlHtml(p) {
         "</select>"
       );
     }
+    // Connections loaded but none of this type: say so instead of a bare
+    // text box. No .finput here, so a required field fails validation.
+    if (conns) {
+      var slug = workspaceSlug();
+      var settingsHtml = escapeHtml(t("form.connSettingsWords"));
+      if (slug)
+        settingsHtml =
+          '<a href="' +
+          escapeHtml(
+            appBaseUrl() +
+              "/workspaces/" +
+              encodeURIComponent(slug) +
+              "/connections/",
+          ) +
+          '" target="_blank" rel="noopener">' +
+          settingsHtml +
+          "</a>";
+      return (
+        '<div id="' +
+        id +
+        '" class="fnoconn">' +
+        t("form.noConn", {
+          type: escapeHtml(
+            t(
+              ptype === "DHIS2Connection"
+                ? "form.connTypeDhis2"
+                : "form.connTypeCustom",
+            ),
+          ),
+          link: settingsHtml,
+        }) +
+        "</div>"
+      );
+    }
+    // Connections query failed or not loaded yet: free-text slug.
     return (
       '<input id="' +
       id +
