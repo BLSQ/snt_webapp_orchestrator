@@ -187,6 +187,24 @@ Check that `/pipelines/?tab=templates` still lands on the templates tab.
 Polling ends with "stopped watching — still running in OpenHEXA". Fine, or extend it / pair it with
 UI-9?
 
+### <a id="app-8"></a>APP-8 · Deep-link step 1 of the not-installed panel to the step's own template
+
+Step 1 links to the templates tab (`/pipelines/?tab=templates`). OpenHEXA also has a page per
+template, `/workspaces/<slug>/templates/<encoded template name>` (e.g. `…/templates/A.6%20DHIS2%20Incidence`),
+the same shape `generatorTemplateUrl` already uses. The map has no template-name field, though.
+`ohName` is display-only, and 5 of the 18 values don't match a current template name (see
+[APP-9](#app-9)). A wrong name gives a broken page, and the app can't detect that. Options: build the
+link from `ohName` once APP-9 is fixed and keep the two in lockstep, or add a `templateName` field to
+the map contract. Either way, fall back to the templates tab when the field is missing.
+
+### <a id="app-9"></a>APP-9 · `ohName` no longer matches the OpenHEXA template names
+
+The contract says `ohName` must match the name shown in OpenHEXA. Against the template list, these
+don't match: the four A.3 mean/median/IQR/magic-glasses nodes (templates are now `A.3.1 …`; PATH is
+still `A.3 …`), and `snt_seasonality_rainfall` (template `D.3 ERA5 Seasonality - Rainfall`, map
+`D.2 …`). Decide whether `ohName` mirrors the template name or the installed pipeline's name (they
+can differ), then update the map.
+
 ## Platform & portability
 
 ### <a id="plat-1"></a>PLAT-1 · Self-hosted OpenHEXA
