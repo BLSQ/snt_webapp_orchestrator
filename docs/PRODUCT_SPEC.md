@@ -253,11 +253,14 @@ side product and is parked ([ADR 0009](decisions/0009-cockpit-only-flowchart-par
   app should make that consequence legible in its copy, without gating runs behind a modal.
 - **Dependencies section — condensed (v1). ✅ Built.** The Dependencies block (the F8/F9 "Requires /
   Unlocks next / Uses if available" lists) took too much vertical space — worst case **A.2 · DHIS2
-  Formatting**, which unlocks 10+ pipelines. Each labelled section (**Dependencies**, _Choose a
-  method_, _Parameters_, _Latest outputs_) is a **collapsible box** with a keyboard-accessible
-  header toggle; **Dependencies starts collapsed** (it's the tallest), the others start open. The
-  description block is **not** collapsible — it stays visible. ⚠️ **Not built:** per-type counts in
-  the collapsed header (§10 item 9).
+  Formatting**, which unlocks 10+ pipelines. It sits in the step header, to the right of the title,
+  headed **Before & after this step** (groups: _Run first_ / _Uses if available_ / _Unlocks next_).
+  Each labelled section (Dependencies, _Choose a method_, _Run with Parameters_, _Latest outputs_)
+  is a **collapsible box** with a keyboard-accessible header toggle; **Dependencies and Run with
+  Parameters start collapsed**, the others start open. _Run with Parameters_ holds two boxes side
+  by side: **Parameters** (form + Run, always open) and **Documentation**. The description block is
+  **not** collapsible — it stays visible. ⚠️ **Not built:** per-type counts in the collapsed header
+  (§10 item 9).
 - **Embedded HTML report (v1). ✅ Built.** Rather than only link out to the run's HTML report (F6),
   its **content renders in a box at the bottom of the step**, so the user reads the result without
   leaving the app (an `<iframe>` on a freshly signed URL, re-signed on demand).

@@ -21,7 +21,16 @@
          merges them, then renders the rail and cockpit and wires the live
          OpenHEXA calls (status, run, poll, outputs). -->
     <header class="appbar">
-      <h1>SNT Pipelines Orchestrator</h1>
+      <!-- Logo mark: one tile per track, coloured by --A..--D in styles.css. -->
+      <h1>
+        <svg class="mark" viewBox="0 0 26 26" aria-hidden="true">
+          <rect class="a" x="1" y="1" width="11" height="11" rx="3" />
+          <rect class="b" x="14" y="1" width="11" height="11" rx="3" />
+          <rect class="c" x="1" y="14" width="11" height="11" rx="3" />
+          <rect class="d" x="14" y="14" width="11" height="11" rx="5.5" />
+        </svg>
+        <span>SNT <span class="sub">Pipelines Orchestrator</span></span>
+      </h1>
       <div class="nav">
         <button class="nbtn" id="backBtn" type="button">&#9666; Back</button>
         <span class="stepcount" id="stepcount"></span>

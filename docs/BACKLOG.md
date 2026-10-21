@@ -139,10 +139,6 @@ that relative links in every `.md` resolve.
 
 ## App
 
-### <a id="ui-1"></a>UI-1 · Stop button
-
-Via `stopPipeline` — no new scope (`PIPELINES_RUN`).
-
 ### <a id="ui-2"></a>UI-2 · Show run progress
 
 `pipelineRun.progress` is available on every run; the status line shows only the status.

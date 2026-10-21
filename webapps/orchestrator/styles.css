@@ -16,10 +16,22 @@
   --paper: #fff;
   --bg: #eef0f3;
   --panel: #f7f8fa;
-  --A: #3559c7;
-  --B: #1f9e8e;
-  --C: #8453c9;
-  --D: #c0473b;
+  /* Track colours, and the text colour that reads on each (rail group
+     label, breadcrumb pill): white or ink, whichever contrasts more. */
+  --A: #4a6a8f;
+  --B: #527a60;
+  --C: #8a6589;
+  --D: #b08a3e;
+  --A-ink: #fff;
+  --B-ink: #fff;
+  --C-ink: #fff;
+  --D-ink: var(--ink);
+  /* Dark app bar */
+  --bar: #1d2025;
+  --bar-raised: #2a2e35;
+  --bar-hover: #353a42;
+  --bar-line: #3a3f47;
+  --bar-soft: #aeb4bd;
   /* Run-status colours: OpenHEXA's run badges (main = ring/symbol/text,
      -bg = fill). Queued is a guess (OH's gray-100), it shows for seconds. */
   --ok: #00bc7d;
@@ -56,28 +68,74 @@ body {
 }
 
 /* ---------- app bar ---------- */
+/* Dark bar with a four-track colour strip along the bottom edge. */
 .appbar {
+  position: relative;
   display: grid;
   grid-template-columns: 1fr auto 1fr;
   align-items: center;
   gap: 14px;
   padding: 11px 20px;
-  background: var(--paper);
-  border-bottom: 1px solid var(--line);
+  background: var(--bar);
+  color: #fff;
+}
+.appbar::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 3px;
+  background: linear-gradient(
+    90deg,
+    var(--A) 0 25%,
+    var(--B) 25% 50%,
+    var(--C) 50% 75%,
+    var(--D) 75% 100%
+  );
 }
 .appbar h1 {
+  display: flex;
+  align-items: center;
+  gap: 10px;
   font-size: 15px;
   margin: 0;
-  font-weight: 700;
+  font-weight: 800;
+  letter-spacing: -0.01em;
   justify-self: start;
+}
+.appbar h1 .mark {
+  width: 26px;
+  height: 26px;
+  flex: none;
+}
+.appbar h1 .mark .a {
+  fill: var(--A);
+}
+.appbar h1 .mark .b {
+  fill: var(--B);
+}
+.appbar h1 .mark .c {
+  fill: var(--C);
+}
+.appbar h1 .mark .d {
+  fill: var(--D);
+}
+.appbar h1 .sub {
+  font-weight: 400;
+  letter-spacing: 0;
+  color: var(--bar-soft);
 }
 .appbar .ws {
   font-size: 12px;
-  color: var(--soft);
-  border: 1px solid var(--line);
+  color: var(--bar-soft);
+  border: 1px solid var(--bar-line);
   border-radius: 14px;
   padding: 4px 12px;
-  background: var(--panel);
+  background: var(--bar-raised);
+}
+.appbar .ws b {
+  color: #fff;
 }
 .appbar .nav {
   display: flex;
@@ -93,29 +151,33 @@ body {
 }
 .appbar .stepcount {
   font-size: 12px;
-  color: var(--soft);
+  color: var(--bar-soft);
   font-weight: 600;
 }
 .appbar .nbtn {
-  border: 1px solid var(--line);
-  background: var(--paper);
+  border: 1px solid var(--bar-line);
+  background: var(--bar-raised);
   border-radius: 7px;
   padding: 7px 13px;
+  font: inherit;
   font-size: 12.5px;
   font-weight: 600;
-  color: var(--ink);
+  color: #fff;
   cursor: pointer;
   display: flex;
   align-items: center;
   gap: 6px;
 }
 .appbar .nbtn:hover {
-  background: var(--panel);
+  background: var(--bar-hover);
 }
 .appbar .nbtn.primary {
-  background: var(--ink);
-  color: #fff;
-  border-color: var(--ink);
+  background: #fff;
+  color: var(--ink);
+  border-color: #fff;
+}
+.appbar .nbtn.primary:hover {
+  background: var(--line-soft);
 }
 .appbar .nbtn[disabled] {
   opacity: 0.4;
@@ -151,6 +213,23 @@ body {
   background: var(--ink);
   color: #fff;
 }
+.appbar .langtoggle {
+  border-color: var(--bar-line);
+  background: var(--bar-raised);
+}
+.appbar .langtoggle .langbtn {
+  color: var(--bar-soft);
+}
+.appbar .langtoggle .langbtn + .langbtn {
+  border-left-color: var(--bar-line);
+}
+.appbar .langtoggle .langbtn:hover {
+  background: var(--bar-hover);
+}
+.appbar .langtoggle .langbtn.is-active {
+  background: #fff;
+  color: var(--ink);
+}
 
 .shell {
   display: flex;
@@ -177,21 +256,14 @@ body {
 .grp {
   margin: 6px 0 2px;
 }
+/* Full-width band in the track colour (--track / --track-ink set inline). */
 .grp .glabel {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 8px 18px 5px;
-  font-size: 10.5px;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  color: var(--soft);
+  margin: 4px 0;
+  padding: 7px 18px;
+  font-size: 12px;
   font-weight: 700;
-}
-.grp .glabel .tk {
-  width: 9px;
-  height: 9px;
-  border-radius: 3px;
+  background: var(--track, var(--soft));
+  color: var(--track-ink, #fff);
 }
 .ritem {
   position: relative;
@@ -385,10 +457,12 @@ body {
   gap: 7px;
   margin-bottom: 8px;
 }
-.ck-top .breadcrumb .tk {
-  width: 10px;
-  height: 10px;
-  border-radius: 3px;
+.ck-top .breadcrumb .trackpill {
+  padding: 2px 9px;
+  border-radius: 999px;
+  letter-spacing: 0;
+  background: var(--track, var(--soft));
+  color: var(--track-ink, #fff);
 }
 .ck-top h2 {
   margin: 0;
@@ -655,10 +729,11 @@ body {
 .sec-collapsible.is-collapsed > h4.sec-toggle:hover {
   background: #eef1f6;
 }
-.sec-collapsible .sec-body {
+.sec-collapsible > .sec-body {
   padding: 2px 16px 16px;
 }
-.sec-collapsible.is-collapsed .sec-body {
+/* Child combinator: sections nest (Documentation inside Run with Parameters). */
+.sec-collapsible.is-collapsed > .sec-body {
   display: none;
 }
 .sec-caret {
@@ -673,6 +748,58 @@ body {
 }
 .sec-collapsible:not(.is-collapsed) > h4.sec-toggle .sec-caret {
   transform: rotate(90deg);
+}
+
+/* Header split: title block (left) | Dependencies box (right, top-aligned).
+   In that narrow column the three dependency groups stack. */
+.ck-top-split {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(300px, 400px);
+  gap: 22px;
+  align-items: start;
+}
+.ck-top-split .deps {
+  flex-direction: column;
+  gap: 14px;
+}
+.ck-top-split .deps .col {
+  flex: none;
+  min-width: 0;
+}
+
+/* Run with Parameters: Parameters | Documentation, white boxes on the grey
+   outer box. Parameters (.subbox) has the section-header look but no toggle. */
+.run-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 16px;
+  align-items: start;
+}
+.subbox,
+.run-grid .sec-collapsible {
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: 9px;
+}
+.subbox > h4 {
+  padding: 13px 16px 0;
+}
+.subbox > .subbox-body {
+  padding: 2px 16px 16px;
+}
+.run-grid .sec-collapsible > h4.sec-toggle:hover {
+  background: var(--panel);
+}
+
+/* Narrow cockpit: header and run box stack to one column. */
+.cockpit {
+  container-type: inline-size;
+}
+@container (max-width: 860px) {
+  .ck-top-split,
+  .run-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
 }
 
 /* dependency context */
@@ -926,37 +1053,90 @@ select.finput {
 .runrow {
   display: flex;
   align-items: center;
-  gap: 14px;
+  gap: 8px;
   flex-wrap: wrap;
 }
-.btn-primary {
+/* Run / Run again / Stop copy OpenHEXA's Button (Tailwind: rounded-sm, text-sm,
+   px-3 py-2.5, leading-4, font-medium, shadow-xs, blue-600 / red-600).
+   .btn-quiet (Preview config) keeps the shape but stays in the background. */
+.btn-primary,
+.btn-danger,
+.btn-quiet {
   font: inherit;
-  border: 2px solid var(--A);
-  background: var(--A);
-  color: #fff;
-  border-radius: 9px;
-  padding: 12px 26px;
-  font-size: 14.5px;
-  font-weight: 700;
+  font-size: 14px;
+  line-height: 16px;
+  font-weight: 500;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  padding: 10px 12px;
   cursor: pointer;
   display: inline-flex;
   align-items: center;
-  gap: 9px;
+  justify-content: center;
+  transition: all 0.15s ease;
+}
+.btn-primary,
+.btn-danger {
+  color: #fff;
+  box-shadow: 0 1px 2px rgb(0 0 0 / 0.05);
+}
+.btn-primary {
+  background: #155dfc;
 }
 .btn-primary:hover {
-  filter: brightness(1.06);
+  background: #1447e6;
+}
+.btn-danger {
+  background: #e7000b;
+}
+.btn-danger:hover {
+  background: #c10007;
+}
+.btn-primary:focus-visible,
+.btn-danger:focus-visible,
+.btn-quiet:focus-visible {
+  outline: none;
+  box-shadow:
+    0 0 0 2px #fff,
+    0 0 0 4px #2b7fff;
+}
+.btn-danger:focus-visible {
+  box-shadow:
+    0 0 0 2px #fff,
+    0 0 0 4px #fb2c36;
 }
 .btn-primary:disabled,
-.btn-primary.is-busy {
-  background: #eceef1;
-  border-color: var(--line);
-  color: var(--faint);
+.btn-danger:disabled {
+  opacity: 0.5;
   cursor: not-allowed;
-  filter: none;
 }
-.btn-primary.rerun {
-  background: #fff;
-  color: var(--A);
+.btn-primary:disabled:hover {
+  background: #155dfc;
+}
+.btn-danger:disabled:hover {
+  background: #e7000b;
+}
+.btn-ic {
+  width: 16px;
+  height: 16px;
+  margin: 0 6px 0 -4px;
+  flex: 0 0 auto;
+}
+.btn-quiet {
+  margin-left: auto;
+  font-size: 13px;
+  background: transparent;
+  border-color: var(--line);
+  color: var(--soft);
+}
+.btn-quiet:hover {
+  background: var(--panel);
+  color: var(--ink);
+}
+.btn-quiet.is-active {
+  background: var(--line-soft);
+  border-color: var(--faint);
+  color: var(--ink);
 }
 .btn-secondary {
   font: inherit;
@@ -1292,6 +1472,7 @@ select.finput {
   background: var(--paper);
   border-radius: 9px;
   padding: 11px 20px;
+  font: inherit;
   font-size: 13.5px;
   font-weight: 700;
   color: var(--ink);
