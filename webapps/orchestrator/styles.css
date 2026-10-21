@@ -655,10 +655,11 @@ body {
 .sec-collapsible.is-collapsed > h4.sec-toggle:hover {
   background: #eef1f6;
 }
-.sec-collapsible .sec-body {
+.sec-collapsible > .sec-body {
   padding: 2px 16px 16px;
 }
-.sec-collapsible.is-collapsed .sec-body {
+/* Child combinator: sections nest (Documentation inside Run with Parameters). */
+.sec-collapsible.is-collapsed > .sec-body {
   display: none;
 }
 .sec-caret {
@@ -673,6 +674,58 @@ body {
 }
 .sec-collapsible:not(.is-collapsed) > h4.sec-toggle .sec-caret {
   transform: rotate(90deg);
+}
+
+/* Header split: title block (left) | Dependencies box (right, top-aligned).
+   In that narrow column the three dependency groups stack. */
+.ck-top-split {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(300px, 400px);
+  gap: 22px;
+  align-items: start;
+}
+.ck-top-split .deps {
+  flex-direction: column;
+  gap: 14px;
+}
+.ck-top-split .deps .col {
+  flex: none;
+  min-width: 0;
+}
+
+/* Run with Parameters: Parameters | Documentation, white boxes on the grey
+   outer box. Parameters (.subbox) has the section-header look but no toggle. */
+.run-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 16px;
+  align-items: start;
+}
+.subbox,
+.run-grid .sec-collapsible {
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: 9px;
+}
+.subbox > h4 {
+  padding: 13px 16px 0;
+}
+.subbox > .subbox-body {
+  padding: 2px 16px 16px;
+}
+.run-grid .sec-collapsible > h4.sec-toggle:hover {
+  background: var(--panel);
+}
+
+/* Narrow cockpit: header and run box stack to one column. */
+.cockpit {
+  container-type: inline-size;
+}
+@container (max-width: 860px) {
+  .ck-top-split,
+  .run-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
 }
 
 /* dependency context */

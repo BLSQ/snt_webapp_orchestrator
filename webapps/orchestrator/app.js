@@ -797,15 +797,16 @@ var I18N = {
     "foot.step": "Step {n} of {total}",
     // section headings
     "heading.chooseMethod": "Choose a method",
-    "heading.dependencies": "Dependencies",
+    "heading.dependencies": "Before & after this step",
     "heading.runParams": "Run with Parameters",
+    "heading.parameters": "Parameters",
     "heading.latestOutputs": "Latest outputs",
     "heading.documentation": "Documentation",
     "readme.loading": "Loading the documentation…",
     "readme.unavailable": "Documentation not available, re-run Create pipeline_cards.",
     // dependency columns
-    "dep.requires": "Requires (hard)",
-    "dep.uses": "Uses if available (soft)",
+    "dep.requires": "Run first",
+    "dep.uses": "Uses if available",
     "dep.unlocks": "Unlocks next",
     "dep.none": "none",
     // chips
@@ -1004,15 +1005,16 @@ var I18N = {
     "foot.step": "Étape {n} sur {total}",
     // section headings
     "heading.chooseMethod": "Choisir une méthode",
-    "heading.dependencies": "Dépendances",
+    "heading.dependencies": "Avant et après cette étape",
     "heading.runParams": "Exécuter avec paramètres",
+    "heading.parameters": "Paramètres",
     "heading.latestOutputs": "Derniers résultats",
     "heading.documentation": "Documentation",
     "readme.loading": "Chargement de la documentation…",
     "readme.unavailable": "Documentation non disponible, relancez Create pipeline_cards.",
     // dependency columns
-    "dep.requires": "Requis (obligatoire)",
-    "dep.uses": "Utilisé si disponible (optionnel)",
+    "dep.requires": "À exécuter avant",
+    "dep.uses": "Utilisé si disponible",
     "dep.unlocks": "Débloque la suite",
     "dep.none": "aucune",
     // chips
@@ -2300,10 +2302,14 @@ function renderCockpit() {
       ? " · " + pickLang(node.label).replace(/^.*?:\s*/, "")
       : "");
 
+  // Layout: the header carries the title (left) and the Dependencies box
+  // (right); the body has the description, then one "Run with Parameters" box
+  // holding Parameters (always open) and Documentation side by side.
   ck.innerHTML =
-    '<div class="ck-top" style="border-top:4px solid ' +
+    '<div class="ck-top ck-top-split" style="border-top:4px solid ' +
     trackC +
     '">' +
+    '<div class="ck-title">' +
     '<div class="breadcrumb"><span class="tk" style="background:' +
     trackC +
     '"></span>' +
@@ -2331,14 +2337,6 @@ function renderCockpit() {
     "</span>" +
     "</div>" +
     "</div>" +
-    '<div class="ck-body">' +
-    '<div id="sb-altnote-slot">' +
-    groupExclusionNoticeHtml(node) +
-    "</div>" +
-    (desc ? '<p class="desc">' + mdLite(desc) + "</p>" : "") +
-    '<div class="sec" id="sb-readme-sec"><h4>' +
-    escapeHtml(t("heading.documentation")) +
-    '</h4><div id="sb-readme" class="sb-readme"></div></div>' +
     '<div class="sec"><h4>' +
     escapeHtml(t("heading.dependencies")) +
     '</h4><div class="deps">' +
@@ -2346,16 +2344,32 @@ function renderCockpit() {
     depColHtml(t("dep.uses"), sp, true) +
     depColHtml(t("dep.unlocks"), hc, false) +
     "</div></div>" +
+    "</div>" +
+    '<div class="ck-body">' +
+    '<div id="sb-altnote-slot">' +
+    groupExclusionNoticeHtml(node) +
+    "</div>" +
+    (desc ? '<p class="desc">' + mdLite(desc) + "</p>" : "") +
     altsHtml +
     '<div class="sec"><h4>' +
     escapeHtml(paramsTitle) +
     "</h4>" +
+    '<div class="run-grid">' +
+    // Parameters is a .subbox, not a .sec, so it is never collapsible.
+    '<div class="subbox"><h4>' +
+    escapeHtml(t("heading.parameters")) +
+    '</h4><div class="subbox-body">' +
     paramsFormHtml(node) +
     '<div class="runrow" style="margin-top:16px">' +
     runRowHtml(node) +
     "</div>" +
     '<div id="sb-runstatus" class="sb-runstatus" hidden></div>' +
     '<pre id="sb-config" class="sb-config" hidden></pre>' +
+    "</div></div>" +
+    '<div class="sec" id="sb-readme-sec"><h4>' +
+    escapeHtml(t("heading.documentation")) +
+    '</h4><div id="sb-readme" class="sb-readme"></div></div>' +
+    "</div>" +
     "</div>" +
     '<div class="sec"><h4>' +
     escapeHtml(t("heading.latestOutputs")) +
@@ -2366,14 +2380,17 @@ function renderCockpit() {
   var wrap2 = document.querySelector(".cockpit-wrap");
   if (wrap2) wrap2.scrollTop = 0;
 
-  // Turn each labelled section (Documentation, Dependencies, Choose a method,
-  // Parameters, Latest outputs) into its own collapsible box. The description
-  // block above them isn't a `.sec`, so it stays permanently open.
-  // Documentation and Dependencies start collapsed (the two tallest —
-  // PRODUCT_SPEC §8, Dependencies).
+  // Turn each labelled section (Dependencies, Choose a method, Run with
+  // Parameters, Documentation inside it, Latest outputs) into its own
+  // collapsible box. The description block and the Parameters sub-box aren't
+  // `.sec`s, so they stay permanently open.
+  // Documentation, Dependencies and Run with Parameters start collapsed
+  // (PRODUCT_SPEC §8, Dependencies). Prefix match, so a group step's
+  // "Run with Parameters · <method>" counts too.
   makeSectionsCollapsible(ck, [
     t("heading.documentation").toLowerCase(),
     t("heading.dependencies").toLowerCase(),
+    t("heading.runParams").toLowerCase(),
   ]);
   wireReadmeSection(node);
 
@@ -2413,7 +2430,8 @@ function makeSectionsCollapsible(root, collapsedPrefixes) {
   });
   Array.prototype.forEach.call(root.querySelectorAll(".sec"), function (sec) {
     if (sec.getAttribute("data-collapsible") === "1") return;
-    var h = sec.querySelector("h4");
+    // Own header only: sections nest (Documentation inside Run with Parameters).
+    var h = sec.querySelector(":scope > h4");
     if (!h) return;
     sec.setAttribute("data-collapsible", "1");
     sec.classList.add("sec-collapsible");
