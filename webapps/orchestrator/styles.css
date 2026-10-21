@@ -1175,6 +1175,23 @@ select.finput {
 .sb-missing p:last-child {
   margin-bottom: 0;
 }
+/* Step 2's "Refresh the catalogue" control: a smaller Run button plus a link,
+   or a run-status line (+ Reload page / retry button) while and after it runs. */
+.sb-genrefresh {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px 12px;
+  margin: 6px 0 4px;
+}
+.sb-genrefresh .btn-primary {
+  padding: 7px 16px;
+  font-size: 13px;
+}
+.sb-genrefresh .sb-runstatus {
+  width: auto;
+  margin-top: 0;
+}
 
 /* ---------- footer nav ---------- */
 .ck-foot {

@@ -73,11 +73,18 @@ top of `app.js`: `GENERATOR_QUERY`, `looksLikeGenerator`, `diagnoseMissingCatalo
 - **Never hardcode the generator's code.** `looksLikeGenerator` lowercases `code`/`name`, strips
   non-alphanumerics and tests for `pipelinecards` (`GENERATOR_KEY_MATCH`). Links are built from the
   `code` the query actually returned.
-- `diagnoseMissingCatalog` is reused by the run-error drift hint and the not-installed panel (both
-  via `generatorRefreshUrl`), so it resolves the generator's state generally, despite its name.
-  The not-installed panel's "Refresh the catalogue" link starts on the pipelines list and is
-  narrowed to the generator in a second pass (`resolveMissingGeneratorLink`, cached in
-  `APP.generatorHref`).
+- `diagnoseMissingCatalog` is reused by the run-error drift hint (via `generatorRefreshUrl`) and
+  the not-installed panel, so it resolves the generator's state (and its `id`) generally, despite
+  its name.
+- **The not-installed panel runs the generator** ([ADR 0015](../../docs/decisions/0015-webapp-may-run-the-generator.md)).
+  Step 2's slot `#sb-genrefresh` renders at once ("Checking…", or the watched run), then
+  `resolveGeneratorRefresh` fills it from a fresh diagnosis on every render: not installed →
+  template link; `neverRun` / `lastRunFailed` → **Refresh the catalogue** button
+  (`startGeneratorRefresh`, `RUN_MUTATION` with `config: {}`); `inProgress` → watched;
+  `unknown` → pipelines-list link. Only the generator's identity is cached (`APP.generator`); the
+  run being watched lives in `APP.genRefresh`, which survives re-renders and is the double-click
+  guard. Polling goes through `watchRun`, the loop shared with `pollRun`. Success shows
+  **Reload page**; `GEN_REFRESH_AUTO_RELOAD` turns that into an automatic reload.
 
 ## Run errors
 

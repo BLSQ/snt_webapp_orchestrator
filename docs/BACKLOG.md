@@ -188,6 +188,17 @@ Check that `/pipelines/?tab=templates` still lands on the templates tab.
 Polling ends with "stopped watching — still running in OpenHEXA". Fine, or extend it / pair it with
 UI-9? Reloading the page resumes polling with a fresh 40-min budget.
 
+### <a id="app-6"></a>APP-6 · "Refresh the catalogue" button in the run-error drift hint
+
+The not-installed panel runs the generator itself ([ADR 0015](decisions/0015-webapp-may-run-the-generator.md)).
+The drift hint under a rejected run (`catalogueRefreshHintHtml`) still only links to it. Reuse the
+same control there? The status line is a flex row (`.rs-hint` for a second line).
+
+### <a id="app-7"></a>APP-7 · "Refresh the catalogue" button in the boot "no catalogue" panel
+
+Same question for the boot panel (`missingCatalogError`, states `neverRun` / `lastRunFailed`). The
+app has not booted there, so the control would need to work without `APP` state.
+
 ### <a id="app-8"></a>APP-8 · Deep-link step 1 of the not-installed panel to the step's own template
 
 Step 1 links to the templates tab (`/pipelines/?tab=templates`). OpenHEXA also has a page per

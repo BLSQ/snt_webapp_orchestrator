@@ -132,7 +132,8 @@ Three independent axes per node:
 
 - **available vs greyed** — static: available iff the node's `id` is in the workspace's catalog
   with a `uuid`. Otherwise greyed and unclickable, with a "how to install" panel linking to the
-  templates page.
+  templates page and a button that re-runs the generator
+  ([ADR 0015](decisions/0015-webapp-may-run-the-generator.md)).
 - **completed** — the pipeline's **most recent run in the workspace** succeeded, read from the
   cross-session status board (`cockpitState(node) === "ok"`). Not limited to runs started in this
   session.

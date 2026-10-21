@@ -203,7 +203,9 @@ read by the app at page load ([ADR 0002](decisions/0002-catalog-in-workspace-buc
 level this means:
 
 - **Configuration changes need no deploy.** Installing a pipeline, or a parameter changing in a
-  newer version, is picked up by re-running the generator and refreshing the page.
+  newer version, is picked up by re-running the generator and refreshing the page. A
+  not-installed step's panel can run the generator itself (**Refresh the catalogue**, then
+  **Reload page**; [ADR 0015](decisions/0015-webapp-may-run-the-generator.md)).
 - **The parameter form matches the version actually installed** in the workspace
   ([ADR 0003](decisions/0003-catalog-parameters-from-deployed-version.md)). This is a _different_
   problem from the README drift in §8, which is about documentation and is still open.

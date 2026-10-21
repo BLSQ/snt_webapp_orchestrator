@@ -111,9 +111,9 @@ var RUN_POLL_QUERY =
   "  }" +
   "}";
 
-// Used only when the catalog is missing, to work out *why* (see
-// diagnoseMissingCatalog): every pipeline in the workspace with its most recent
-// run, so we can find the generator and see whether it has ever run.
+// Used to find the generator and its state (see diagnoseMissingCatalog): every
+// pipeline in the workspace with its most recent run, so we can find the
+// generator and see whether it has ever run.
 var GENERATOR_QUERY =
   "query ($ws: String!) {" +
   "  pipelines(workspaceSlug: $ws, page: 1, perPage: 100) {" +
@@ -122,7 +122,7 @@ var GENERATOR_QUERY =
   "      code" +
   "      name" +
   "      runs(orderBy: EXECUTION_DATE_DESC, page: 1, perPage: 1) {" +
-  "        items { id status }" +
+  "        items { id status executionDate }" +
   "      }" +
   "    }" +
   "  }" +
@@ -201,11 +201,12 @@ function looksLikeGenerator(p) {
 
 /* Resolve the generator's state. Returns one of:
  *   {state:"notInstalled"}
- *   {state:"neverRun",      code}
- *   {state:"inProgress",    code, runId}
- *   {state:"lastRunFailed", code, runId, status}
+ *   {state:"neverRun",      id, code}
+ *   {state:"inProgress",    id, code, runId, status, executionDate}
+ *   {state:"lastRunFailed", id, code, runId, status}
  *   {state:"unknown"}  — the probe itself failed, so stay generic rather than
- *                        assert something that might be wrong. */
+ *                        assert something that might be wrong.
+ * `id` is the pipeline UUID, what runPipeline needs to start it. */
 async function diagnoseMissingCatalog(slug) {
   var found = null;
   try {
@@ -224,13 +225,21 @@ async function diagnoseMissingCatalog(slug) {
   if (!found) return { state: "notInstalled" };
 
   var last = (found.runs && found.runs.items && found.runs.items[0]) || null;
-  if (!last) return { state: "neverRun", code: found.code };
+  if (!last) return { state: "neverRun", id: found.id, code: found.code };
   if (RUN_ACTIVE_STATUSES.indexOf(String(last.status).toLowerCase()) !== -1)
-    return { state: "inProgress", code: found.code, runId: last.id };
+    return {
+      state: "inProgress",
+      id: found.id,
+      code: found.code,
+      runId: last.id,
+      status: last.status,
+      executionDate: last.executionDate,
+    };
   // Includes status "success": a successful run with no catalog still leaves
   // the app unbootable, and the run log is where the answer is.
   return {
     state: "lastRunFailed",
+    id: found.id,
     code: found.code,
     runId: last.id,
     status: last.status,
@@ -700,10 +709,20 @@ var I18N = {
       "Run “create_pipeline_cards” to refresh this workspace’s catalogue — installing alone isn’t enough.",
     "missing.step3": "Reload this page.",
     "missing.thisWorkspace": "this workspace",
-    "link.refreshCatalogueTitle": "Refresh the catalogue",
-    "link.refreshCatalogueSub": "open “create_pipeline_cards” in OpenHEXA and run it",
     "missing.templatesOnlyInOH":
-      "The pipeline templates link and the “Refresh the catalogue” link are only available when this app is opened inside OpenHEXA.",
+      "The pipeline templates link and the “Refresh the catalogue” button are only available when this app is opened inside OpenHEXA.",
+    // step 2's "Refresh the catalogue" control (runs create_pipeline_cards)
+    "genref.checking": "Checking “create_pipeline_cards”…",
+    "genref.button": "↻ Refresh the catalogue",
+    "genref.openInOH": "open in OpenHEXA ↗",
+    "genref.notInstalled":
+      "“create_pipeline_cards” isn’t installed in this workspace yet.",
+    "genref.openPipelines": "Open the pipelines list in OpenHEXA ↗",
+    "genref.starting": "Starting the refresh…",
+    "genref.inProgress": "Refresh in progress…",
+    "genref.success": "Catalogue refreshed.",
+    "genref.failed": "The refresh didn’t complete.",
+    "genref.reload": "↻ Reload page",
     // boot / fatal
     "boot.loading": "Loading pipelines…",
     "boot.failed": "Couldn’t load the pipeline data.",
@@ -900,10 +919,20 @@ var I18N = {
       "Exécutez « create_pipeline_cards » pour actualiser le catalogue de cet espace de travail — l’installation seule ne suffit pas.",
     "missing.step3": "Rechargez cette page.",
     "missing.thisWorkspace": "cet espace de travail",
-    "link.refreshCatalogueTitle": "Actualiser le catalogue",
-    "link.refreshCatalogueSub": "ouvrir « create_pipeline_cards » dans OpenHEXA et l’exécuter",
     "missing.templatesOnlyInOH":
-      "Le lien vers les modèles de pipeline et le lien « Actualiser le catalogue » ne sont disponibles que lorsque cette application est ouverte dans OpenHEXA.",
+      "Le lien vers les modèles de pipeline et le bouton « Actualiser le catalogue » ne sont disponibles que lorsque cette application est ouverte dans OpenHEXA.",
+    // contrôle « Actualiser le catalogue » de l’étape 2 (lance create_pipeline_cards)
+    "genref.checking": "Vérification de « create_pipeline_cards »…",
+    "genref.button": "↻ Actualiser le catalogue",
+    "genref.openInOH": "ouvrir dans OpenHEXA ↗",
+    "genref.notInstalled":
+      "« create_pipeline_cards » n’est pas encore installé dans cet espace de travail.",
+    "genref.openPipelines": "Ouvrir la liste des pipelines dans OpenHEXA ↗",
+    "genref.starting": "Démarrage de l’actualisation…",
+    "genref.inProgress": "Actualisation en cours…",
+    "genref.success": "Catalogue actualisé.",
+    "genref.failed": "L’actualisation n’a pas abouti.",
+    "genref.reload": "↻ Recharger la page",
     // boot / fatal
     "boot.loading": "Chargement des pipelines…",
     "boot.failed": "Impossible de charger les données des pipelines.",
@@ -971,8 +1000,9 @@ var APP = {
   activeRun: {}, // node id -> run id being polled
   groupInUse: {}, // group id -> in-use node id (latest success)
   lastSuccessAt: {}, // node id -> ms of most recent observed success
-  generatorHref: null, // resolved "refresh the catalogue" link (not-installed panel)
+  generator: null, // {id, code} of create_pipeline_cards once looked up (identity only)
   generatorLookup: false, // that lookup is in flight
+  genRefresh: null, // the catalogue-refresh run this page is watching (resolveGeneratorRefresh)
 };
 
 /* ================================================================== *
@@ -2024,7 +2054,7 @@ function renderCockpit() {
       missingBodyHtml(node || step.members[0]) +
       "</div>" +
       footHtml(step);
-    resolveMissingGeneratorLink(workspaceSlug());
+    resolveGeneratorRefresh(workspaceSlug());
     var wrap = document.querySelector(".cockpit-wrap");
     if (wrap) wrap.scrollTop = 0;
     return;
@@ -2236,16 +2266,17 @@ function missingBodyHtml(node) {
       '" target="_blank" rel="noopener">' +
       templatesHtml +
       "</a>";
-    // Starts on the pipelines list; resolveMissingGeneratorLink() narrows it
-    // to the generator itself once the lookup comes back.
-    links += extLinkHtml(
-      APP.generatorHref ||
-        appBaseUrl() + "/workspaces/" + encodeURIComponent(slug) + "/pipelines/",
-      "↻",
-      t("link.refreshCatalogueTitle"),
-      t("link.refreshCatalogueSub"),
-    ).replace("<a ", '<a id="sb-generator-link" ');
   }
+  // Step 2's "Refresh the catalogue" control. Filled at once from the refresh
+  // run this page is watching, if any; otherwise by resolveGeneratorRefresh()
+  // once the generator lookup comes back.
+  var refreshHtml = slug
+    ? '<div id="sb-genrefresh" class="sb-genrefresh">' +
+      (APP.genRefresh
+        ? genRefreshRunHtml(APP.genRefresh)
+        : '<span class="sb-muted">' + escapeHtml(t("genref.checking")) + "</span>") +
+      "</div>"
+    : "";
   return (
     '<div class="sb-missing">' +
     "<p><strong>" +
@@ -2262,6 +2293,7 @@ function missingBodyHtml(node) {
     "</li>" +
     "<li>" +
     escapeHtml(t("missing.step2")) +
+    refreshHtml +
     "</li>" +
     "<li>" +
     escapeHtml(t("missing.step3")) +
@@ -2286,20 +2318,252 @@ function missingBodyHtml(node) {
   );
 }
 
-/* Second pass for missingBodyHtml: point the "refresh the catalogue" link at
- * the generator itself. The target is workspace-wide, so it doesn't matter
- * which not-installed step is showing by the time this resolves; once found it
- * is remembered so re-renders don't repeat the query. On failure the link stays
- * on the pipelines list. */
-async function resolveMissingGeneratorLink(slug) {
-  if (!slug || APP.generatorHref || APP.generatorLookup) return;
+/* --- "Refresh the catalogue" (not-installed panel, step 2) ----------- *
+ * The panel runs create_pipeline_cards itself (ADR 0015): it takes no
+ * parameters and only rewrites the catalogue. What step 2 offers depends on
+ * the generator's state, which changes, so it is looked up again on every
+ * render of the panel and never cached. What is kept is the refresh run this
+ * page started or picked up (APP.genRefresh: {id, code, phase, run, errors,
+ * errorMessage}), so it survives re-renders. Phases: "starting", "watching",
+ * then one of "done", "rejected", "lost", "gaveUp". */
+
+// true = reload the page by itself once the refresh succeeds, instead of
+// offering the Reload page button.
+var GEN_REFRESH_AUTO_RELOAD = false;
+
+function genRefreshEnded(g) {
+  return g.phase !== "starting" && g.phase !== "watching";
+}
+
+function genRefreshButtonHtml() {
+  return (
+    '<button type="button" id="sb-genrefresh-btn" class="btn-primary">' +
+    escapeHtml(t("genref.button")) +
+    "</button>"
+  );
+}
+
+function genRefreshLinkHtml(href, label) {
+  return (
+    '<a href="' +
+    escapeHtml(href) +
+    '" target="_blank" rel="noopener">' +
+    escapeHtml(label) +
+    "</a>"
+  );
+}
+
+// Step 2 before any refresh run, from a fresh diagnoseMissingCatalog() result.
+function genRefreshIdleHtml(d, slug) {
+  if (d.state === "notInstalled")
+    return (
+      "<span>" +
+      escapeHtml(t("genref.notInstalled")) +
+      "</span> " +
+      genRefreshLinkHtml(generatorTemplateUrl(slug), t("link.installGenerator"))
+    );
+  if (!d.code)
+    // "unknown": the lookup failed, so offer the pipelines list (as before).
+    return genRefreshLinkHtml(
+      appBaseUrl() + "/workspaces/" + encodeURIComponent(slug) + "/pipelines/",
+      t("genref.openPipelines"),
+    );
+  return (
+    genRefreshButtonHtml() +
+    genRefreshLinkHtml(generatorPipelineUrl(slug, d.code), t("genref.openInOH"))
+  );
+}
+
+// Step 2 while / after a refresh run: a run-status line, plus Reload page
+// after a success or the button again after a failed run.
+function genRefreshRunHtml(g) {
+  var slug = workspaceSlug();
+  var run = g.run;
+  var runUrl =
+    slug && run && run.id ? generatorRunUrl(slug, g.code, run.id) : null;
+  var runLink = runUrl
+    ? ' <a class="run-link" href="' +
+      escapeHtml(runUrl) +
+      '" target="_blank" rel="noopener noreferrer">' +
+      escapeHtml(t("runstat.viewRun")) +
+      "</a>"
+    : "";
+  var glyph = "●";
+  var spin = "";
+  var cls = runStatusCls(run ? run.status : "queued");
+  var text;
+  var tail = "";
+  var after = "";
+
+  if (g.phase === "starting") {
+    spin = " spin";
+    cls = "rs-run";
+    text = t("genref.starting");
+  } else if (g.phase === "rejected" || g.phase === "lost") {
+    glyph = "⚠";
+    cls = "rs-err";
+    text =
+      g.phase === "lost"
+        ? t("msg.lostTrack")
+        : t("msg.couldntStart") +
+          (g.errors
+            ? runErrorInfo(g.errors).text
+            : g.errorMessage || t("msg.unknownError"));
+    if (slug && g.code)
+      tail =
+        ' <a class="run-link" href="' +
+        escapeHtml(generatorPipelineUrl(slug, g.code)) +
+        '" target="_blank" rel="noopener noreferrer">' +
+        escapeHtml(t("link.refreshCatalogue")) +
+        "</a>";
+  } else if (g.phase === "done" && run.status === "success") {
+    glyph = "✓";
+    text = t("genref.success");
+    tail = runLink;
+    after =
+      '<button type="button" id="sb-genrefresh-reload" class="btn-primary">' +
+      escapeHtml(t("genref.reload")) +
+      "</button>";
+  } else if (g.phase === "done") {
+    glyph = run.status === "failed" ? "✕" : "■";
+    text = t("genref.failed");
+    tail = runLink;
+    after = genRefreshButtonHtml();
+  } else {
+    // watching / gaveUp: still in flight.
+    spin = g.phase === "watching" ? " spin" : "";
+    text = t("genref.inProgress");
+    var time = runTimeText(run);
+    tail =
+      (time ? " <small>" + escapeHtml(time) + "</small>" : "") +
+      runLink +
+      (g.phase === "gaveUp"
+        ? " <small>" + escapeHtml(t("msg.stoppedWatchingStillRunning")) + "</small>"
+        : "");
+  }
+
+  return (
+    '<div class="sb-runstatus ' +
+    cls +
+    '"><span class="rs-glyph' +
+    spin +
+    '">' +
+    glyph +
+    "</span> " +
+    escapeHtml(text) +
+    tail +
+    "</div>" +
+    after
+  );
+}
+
+// Paint step 2's slot (if the not-installed panel is showing) and wire its
+// buttons. With no html, paint the refresh run's state.
+function paintGenRefresh(html) {
+  var slot = document.getElementById("sb-genrefresh");
+  if (!slot) return;
+  if (html == null) {
+    if (!APP.genRefresh) return;
+    html = genRefreshRunHtml(APP.genRefresh);
+  }
+  slot.innerHTML = html;
+  var btn = document.getElementById("sb-genrefresh-btn");
+  if (btn) btn.addEventListener("click", startGeneratorRefresh);
+  var reload = document.getElementById("sb-genrefresh-reload");
+  if (reload)
+    reload.addEventListener("click", function () {
+      location.reload();
+    });
+}
+
+/* Second pass for missingBodyHtml: look the generator up and fill step 2. The
+ * slot is workspace-wide, so it doesn't matter which not-installed step is
+ * showing by the time this resolves. */
+async function resolveGeneratorRefresh(slug) {
+  if (!slug || APP.genRefresh || APP.generatorLookup) return;
   APP.generatorLookup = true;
-  var href = await generatorRefreshUrl(slug);
+  var d = await diagnoseMissingCatalog(slug);
   APP.generatorLookup = false;
-  if (!href) return;
-  APP.generatorHref = href;
-  var a = document.getElementById("sb-generator-link");
-  if (a) a.href = href;
+  // A refresh started meanwhile paints itself.
+  if (APP.genRefresh) return;
+  if (d.id) APP.generator = { id: d.id, code: d.code };
+  if (d.state === "inProgress") {
+    // Started elsewhere, or before a reload: watch it like our own.
+    var g = (APP.genRefresh = { id: d.id, code: d.code });
+    watchGeneratorRun(g, {
+      id: d.runId,
+      status: d.status,
+      executionDate: d.executionDate,
+      duration: null,
+    });
+    return;
+  }
+  paintGenRefresh(genRefreshIdleHtml(d, slug));
+}
+
+async function startGeneratorRefresh() {
+  var gen = APP.generator;
+  // One run at a time: a second click (or a click on a stale button) while a
+  // refresh is starting or running does nothing.
+  if (!gen || (APP.genRefresh && !genRefreshEnded(APP.genRefresh))) return;
+  var g = (APP.genRefresh = { id: gen.id, code: gen.code, phase: "starting" });
+  paintGenRefresh();
+
+  var data;
+  try {
+    data = await gql(RUN_MUTATION, { input: { id: gen.id, config: {} } });
+  } catch (err) {
+    console.error("SNT Orchestrator (cockpit) — catalogue refresh error:", err);
+    if (APP.genRefresh !== g) return;
+    g.phase = "rejected";
+    g.errorMessage = err.message;
+    paintGenRefresh();
+    return;
+  }
+  if (APP.genRefresh !== g) return;
+
+  var rp = data && data.runPipeline;
+  if (!rp || !rp.success || !rp.run || !rp.run.id) {
+    g.phase = "rejected";
+    g.errors = (rp && rp.errors) || [];
+    paintGenRefresh();
+    return;
+  }
+  watchGeneratorRun(g, {
+    id: rp.run.id,
+    status: rp.run.status || "queued",
+    executionDate: null,
+    duration: null,
+  });
+}
+
+function watchGeneratorRun(g, run) {
+  g.phase = "watching";
+  g.run = run;
+  paintGenRefresh();
+  watchRun(run.id, {
+    alive: function () {
+      return APP.genRefresh === g;
+    },
+    update: function (r) {
+      g.run = r;
+      paintGenRefresh();
+    },
+    done: function (r) {
+      g.phase = "done";
+      paintGenRefresh();
+      if (r.status === "success" && GEN_REFRESH_AUTO_RELOAD) location.reload();
+    },
+    lost: function () {
+      g.phase = "lost";
+      paintGenRefresh();
+    },
+    giveUp: function (r) {
+      if (r) g.run = r;
+      g.phase = "gaveUp";
+      paintGenRefresh();
+    },
+  });
 }
 
 // Refresh only the live/dynamic parts of the current panel (no form rebuild) —
@@ -2936,28 +3200,31 @@ async function runNode(node) {
   pollRun(node, run.id);
 }
 
-function pollRun(node, runId) {
-  APP.activeRun[node.id] = runId;
+/* The poll loop, shared by node runs (pollRun) and the catalogue refresh
+ * (watchGeneratorRun). Each tick asks `h.alive()` first and goes quiet when it
+ * says no (someone else now owns the run). Callbacks:
+ *   h.update(run) — every successful tick, finished or not
+ *   h.done(run)   — the run reached a terminal status
+ *   h.lost()      — the run no longer exists
+ *   h.giveUp(run) — POLL_MAX_ATTEMPTS reached; `run` is null if the last tick
+ *                   errored */
+function watchRun(runId, h) {
   var attempts = 0;
 
-  function stop() {
-    if (APP.activeRun[node.id] === runId) delete APP.activeRun[node.id];
-    setRunBtnBusy(node.id, false);
+  function again(run) {
+    attempts++;
+    if (attempts >= POLL_MAX_ATTEMPTS) h.giveUp(run);
+    else setTimeout(tick, POLL_INTERVAL_MS);
   }
 
   function tick() {
-    if (APP.activeRun[node.id] !== runId) return;
+    if (!h.alive()) return;
     gql(RUN_POLL_QUERY, { id: runId })
       .then(function (data) {
-        if (APP.activeRun[node.id] !== runId) return;
+        if (!h.alive()) return;
         var pr = data && data.pipelineRun;
         if (!pr) {
-          stop();
-          setRunStatusLine(
-            node.id,
-            '<span class="rs-glyph">⚠</span> ' + escapeHtml(t("msg.lostTrack")),
-            "rs-err",
-          );
+          h.lost();
           return;
         }
         var run = {
@@ -2966,54 +3233,74 @@ function pollRun(node, runId) {
           executionDate: pr.executionDate,
           duration: pr.duration,
         };
-        applyRunToNode(node, run);
-        setRunStatusLine(
-          node.id,
-          runStatusLineHtml(node, run),
-          runStatusCls(pr.status),
-        );
-
-        if (isRunFinished(pr.status)) {
-          stop();
-          finishRun(node, run);
-          return;
-        }
-        attempts++;
-        if (attempts >= POLL_MAX_ATTEMPTS) {
-          stop();
-          setRunStatusLine(
-            node.id,
-            runStatusLineHtml(node, run) +
-              " <small>" +
-              escapeHtml(t("msg.stoppedWatchingStillRunning")) +
-              "</small>",
-            runStatusCls(pr.status),
-          );
-          return;
-        }
-        setTimeout(tick, POLL_INTERVAL_MS);
+        h.update(run);
+        if (isRunFinished(pr.status)) h.done(run);
+        else again(run);
       })
       .catch(function (err) {
-        if (APP.activeRun[node.id] !== runId) return;
+        if (!h.alive()) return;
         console.warn(
           "SNT Orchestrator (cockpit) — run poll error (will retry):",
           err,
         );
-        attempts++;
-        if (attempts >= POLL_MAX_ATTEMPTS) {
-          stop();
-          setRunStatusLine(
-            node.id,
-            '<span class="rs-glyph">⚠</span> ' +
-              escapeHtml(t("msg.stoppedWatching")),
-            "rs-err",
-          );
-          return;
-        }
-        setTimeout(tick, POLL_INTERVAL_MS);
+        again(null);
       });
   }
   setTimeout(tick, 2500);
+}
+
+function pollRun(node, runId) {
+  APP.activeRun[node.id] = runId;
+
+  function stop() {
+    if (APP.activeRun[node.id] === runId) delete APP.activeRun[node.id];
+    setRunBtnBusy(node.id, false);
+  }
+
+  watchRun(runId, {
+    alive: function () {
+      return APP.activeRun[node.id] === runId;
+    },
+    update: function (run) {
+      applyRunToNode(node, run);
+      setRunStatusLine(
+        node.id,
+        runStatusLineHtml(node, run),
+        runStatusCls(run.status),
+      );
+    },
+    done: function (run) {
+      stop();
+      finishRun(node, run);
+    },
+    lost: function () {
+      stop();
+      setRunStatusLine(
+        node.id,
+        '<span class="rs-glyph">⚠</span> ' + escapeHtml(t("msg.lostTrack")),
+        "rs-err",
+      );
+    },
+    giveUp: function (run) {
+      stop();
+      if (run)
+        setRunStatusLine(
+          node.id,
+          runStatusLineHtml(node, run) +
+            " <small>" +
+            escapeHtml(t("msg.stoppedWatchingStillRunning")) +
+            "</small>",
+          runStatusCls(run.status),
+        );
+      else
+        setRunStatusLine(
+          node.id,
+          '<span class="rs-glyph">⚠</span> ' +
+            escapeHtml(t("msg.stoppedWatching")),
+          "rs-err",
+        );
+    },
+  });
 }
 
 // After a reload, the latest run of a node can still be in flight with nothing
