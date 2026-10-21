@@ -114,6 +114,12 @@ var RUN_MUTATION =
   "  }" +
   "}";
 
+// Stop a run. Needs PIPELINES_RUN. `errors` is the same PipelineError enum.
+var STOP_MUTATION =
+  "mutation ($input: StopPipelineInput!) {" +
+  "  stopPipeline(input: $input) { success errors }" +
+  "}";
+
 // Poll one run for its live status (PIPELINES_READ).
 var RUN_POLL_QUERY =
   "query ($id: UUID!) {" +
@@ -827,12 +833,14 @@ var I18N = {
     // run row
     "run.locked": "🔒 Locked",
     "run.runFirst": "Run <b>{list}</b> first.",
-    "run.running": "⟳ Running…",
+    "run.running": "Running…",
+    "run.stop": "Stop",
+    "run.stopping": "Stopping…",
     "run.previewConfig": "Preview config",
-    "run.rerun": "↻ Re-run",
-    "run.rerunSelected": "↻ Re-run selected method",
-    "run.run": "▶ Run pipeline",
-    "run.runSelected": "▶ Run selected method",
+    "run.rerun": "Run again",
+    "run.rerunSelected": "Run selected method again",
+    "run.run": "Run",
+    "run.runSelected": "Run selected method",
     // status pill
     "statuspill.openRun": "Open this run in OpenHEXA",
     // parameter form chrome (labels/help themselves stay English this phase)
@@ -870,6 +878,7 @@ var I18N = {
     "msg.notAvailableWs": "This pipeline isn’t available in this workspace.",
     "msg.startingRun": "Starting run…",
     "msg.couldntStart": "Couldn’t start the run: ",
+    "msg.couldntStop": "Couldn’t stop the run: ",
     "msg.runNotAccepted": "the run was not accepted.",
     // runPipeline rejection — one message per PipelineError enum cause. The
     // first four mean the catalogue no longer matches what's installed.
@@ -882,6 +891,7 @@ var I18N = {
     "runerr.versionNotFound":
       "this pipeline has no deployed version in this workspace, so there is nothing to run.",
     "runerr.permissionDenied": "you don’t have permission to run this pipeline.",
+    "runerr.stopPermissionDenied": "you don’t have permission to stop this run.",
     "runerr.runsLimit": "this workspace has reached its limit for pipeline runs.",
     "runerr.generic": "OpenHEXA refused it ({codes}).",
     "runerr.refreshHint":
@@ -1035,12 +1045,14 @@ var I18N = {
     // run row
     "run.locked": "🔒 Verrouillé",
     "run.runFirst": "Exécutez d’abord <b>{list}</b>.",
-    "run.running": "⟳ En cours…",
+    "run.running": "En cours…",
+    "run.stop": "Arrêter",
+    "run.stopping": "Arrêt en cours…",
     "run.previewConfig": "Aperçu de la config",
-    "run.rerun": "↻ Relancer",
-    "run.rerunSelected": "↻ Relancer la méthode choisie",
-    "run.run": "▶ Exécuter le pipeline",
-    "run.runSelected": "▶ Exécuter la méthode choisie",
+    "run.rerun": "Relancer",
+    "run.rerunSelected": "Relancer la méthode choisie",
+    "run.run": "Exécuter",
+    "run.runSelected": "Exécuter la méthode choisie",
     // status pill
     "statuspill.openRun": "Ouvrir cette exécution dans OpenHEXA",
     // parameter form chrome (labels/help themselves stay English this phase)
@@ -1078,6 +1090,7 @@ var I18N = {
     "msg.notAvailableWs": "Ce pipeline n’est pas disponible dans cet espace de travail.",
     "msg.startingRun": "Démarrage de l’exécution…",
     "msg.couldntStart": "Impossible de démarrer l’exécution : ",
+    "msg.couldntStop": "Impossible d’arrêter l’exécution : ",
     "msg.runNotAccepted": "l’exécution n’a pas été acceptée.",
     // rejet de runPipeline — un message par cause (enum PipelineError). Les
     // quatre premières signifient que le catalogue ne correspond plus.
@@ -1091,6 +1104,8 @@ var I18N = {
       "ce pipeline n’a aucune version déployée dans cet espace de travail : il n’y a rien à exécuter.",
     "runerr.permissionDenied":
       "vous n’avez pas la permission d’exécuter ce pipeline.",
+    "runerr.stopPermissionDenied":
+      "vous n’avez pas la permission d’arrêter cette exécution.",
     "runerr.runsLimit":
       "cet espace de travail a atteint sa limite d’exécutions de pipelines.",
     "runerr.generic": "OpenHEXA l’a refusée ({codes}).",
@@ -1210,6 +1225,7 @@ var APP = {
   statusByUuid: null, // uuid -> { code, run }
   connections: null, // ConnectionType -> [{slug, name}]
   activeRun: {}, // node id -> run id being polled
+  stopping: {}, // run id -> true once stopPipeline accepted it (until terminal)
   groupInUse: {}, // group id -> in-use node id (latest success)
   lastSuccessAt: {}, // node id -> ms of most recent observed success
   generator: null, // {id, code} of create_pipeline_cards once looked up (identity only)
@@ -2130,7 +2146,41 @@ function groupExclusionNoticeHtml(node) {
   return "";
 }
 
-// Run row markup (button + hint), gating on lock / in-flight / prior success.
+// Run-row button icons: OpenHEXA's heroicons (24px outline), drawn at 16px.
+function btnIcon(d) {
+  return (
+    '<svg class="btn-ic" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"' +
+    ' stroke-width="1.5" stroke="currentColor" aria-hidden="true">' +
+    '<path stroke-linecap="round" stroke-linejoin="round" d="' +
+    d +
+    '"/></svg>'
+  );
+}
+var ICON_PLAY = btnIcon(
+  "M5.25 5.653c0-.856.917-1.398 1.667-.986l11.54 6.347a1.125 1.125 0 0 1 0 1.972l-11.54 6.347a1.125 1.125 0 0 1-1.667-.986V5.653Z",
+);
+var ICON_RUN_AGAIN = btnIcon(
+  "M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0 3.181 3.183a8.25 8.25 0 0 0 13.803-3.7M4.031 9.865a8.25 8.25 0 0 1 13.803-3.7l3.181 3.182m0-4.991v4.99",
+);
+var ICON_STOP = btnIcon(
+  "M5.25 7.5A2.25 2.25 0 0 1 7.5 5.25h9a2.25 2.25 0 0 1 2.25 2.25v9a2.25 2.25 0 0 1-2.25 2.25h-9a2.25 2.25 0 0 1-2.25-2.25v-9Z",
+);
+var ICON_CODE = btnIcon(
+  "M17.25 6.75 22.5 12l-5.25 5.25m-10.5 0L1.5 12l5.25-5.25m7.5-3-4.5 16.5",
+);
+
+// The run being watched for a node, if it can be stopped: null while
+// runPipeline has not returned an id yet, or when nothing is in flight.
+function stoppableRunId(node) {
+  if (APP.activeRun[node.id] === "starting") return null;
+  var run = liveRunOf(node);
+  return run && run.id && run.status && !isRunFinished(run.status)
+    ? run.id
+    : null;
+}
+
+// Run row markup (Run / Stop / Preview config + hint), gating on lock /
+// in-flight / prior success. Rebuilt in place by refreshRunRow.
 function runRowHtml(node) {
   var state = cockpitState(node);
   var locked = state === "none" ? lockedReason(node.id) : null;
@@ -2139,10 +2189,15 @@ function runRowHtml(node) {
     !!APP.activeRun[node.id] ||
     (run && run.status && !isRunFinished(run.status));
   var isGroup = !!node.group;
+  var preview =
+    '<button type="button" id="sb-preview" class="btn-quiet" aria-pressed="false">' +
+    ICON_CODE +
+    escapeHtml(t("run.previewConfig")) +
+    "</button>";
 
   if (locked) {
     return (
-      '<button type="button" id="sb-run" class="btn-primary is-busy" disabled>' +
+      '<button type="button" id="sb-run" class="btn-primary" disabled>' +
       escapeHtml(t("run.locked")) +
       "</button>" +
       '<span class="runhint">' +
@@ -2151,34 +2206,58 @@ function runRowHtml(node) {
     );
   }
   if (inFlight) {
+    var runId = stoppableRunId(node);
+    var stopping =
+      !!(runId && APP.stopping[runId]) || (run && run.status === "terminating");
     return (
-      '<button type="button" id="sb-run" class="btn-primary is-busy" disabled>' +
+      '<button type="button" id="sb-run" class="btn-primary" disabled>' +
+      ICON_PLAY +
       escapeHtml(t("run.running")) +
       "</button>" +
-      '<button type="button" id="sb-preview" class="btn-secondary">' +
-      escapeHtml(t("run.previewConfig")) +
-      "</button>"
+      '<button type="button" id="sb-stop" class="btn-danger"' +
+      (runId && !stopping ? "" : " disabled") +
+      ">" +
+      ICON_STOP +
+      escapeHtml(t(stopping ? "run.stopping" : "run.stop")) +
+      "</button>" +
+      preview
     );
   }
-  var label =
-    state === "ok"
-      ? isGroup
-        ? t("run.rerunSelected")
-        : t("run.rerun")
-      : isGroup
-        ? t("run.runSelected")
-        : t("run.run");
-  var cls = "btn-primary" + (state === "ok" ? " rerun" : "");
+  var again = state === "ok";
+  var label = again
+    ? isGroup
+      ? t("run.rerunSelected")
+      : t("run.rerun")
+    : isGroup
+      ? t("run.runSelected")
+      : t("run.run");
   return (
-    '<button type="button" id="sb-run" class="' +
-    cls +
-    '">' +
+    '<button type="button" id="sb-run" class="btn-primary">' +
+    (again ? ICON_RUN_AGAIN : ICON_PLAY) +
     escapeHtml(label) +
     "</button>" +
-    '<button type="button" id="sb-preview" class="btn-secondary">' +
-    escapeHtml(t("run.previewConfig")) +
-    "</button>"
+    preview
   );
+}
+
+// Re-render the run row for the selected node, keeping the Preview-config
+// toggle's pressed state (the config box itself lives outside the row).
+// Skipped when nothing changed, so a poll tick doesn't steal button focus.
+function refreshRunRow(nodeId) {
+  if (APP.selectedId !== nodeId) return;
+  var row = document.getElementById("sb-runrow");
+  var node = APP.nodeById[nodeId];
+  if (!row || !node) return;
+  var html = runRowHtml(node);
+  if (row._html === html) return;
+  row._html = html;
+  row.innerHTML = html;
+  var configBox = document.getElementById("sb-config");
+  var previewBtn = document.getElementById("sb-preview");
+  if (previewBtn && configBox && !configBox.hidden) {
+    previewBtn.classList.add("is-active");
+    previewBtn.setAttribute("aria-pressed", "true");
+  }
 }
 
 function extLinkHtml(href, icon, title, sub, arrow) {
@@ -2360,7 +2439,7 @@ function renderCockpit() {
     escapeHtml(t("heading.parameters")) +
     '</h4><div class="subbox-body">' +
     paramsFormHtml(node) +
-    '<div class="runrow" style="margin-top:16px">' +
+    '<div id="sb-runrow" class="runrow" style="margin-top:16px">' +
     runRowHtml(node) +
     "</div>" +
     '<div id="sb-runstatus" class="sb-runstatus" hidden></div>' +
@@ -3295,14 +3374,6 @@ function setRunStatusLine(nodeId, html, cls) {
   box.innerHTML = html;
 }
 
-function setRunBtnBusy(nodeId, busy) {
-  if (APP.selectedId !== nodeId) return;
-  var btn = document.getElementById("sb-run");
-  if (!btn) return;
-  btn.disabled = busy;
-  btn.classList.toggle("is-busy", busy);
-}
-
 /* Map runPipeline's rejection to something the user can act on. `errors` is a
  * list of PipelineError *enum* values, not free text, so this is an exact match
  * rather than message-sniffing — it won't quietly stop working if OpenHEXA
@@ -3409,7 +3480,7 @@ async function runNode(node) {
   }
 
   APP.activeRun[node.id] = "starting";
-  setRunBtnBusy(node.id, true);
+  refreshRunRow(node.id);
   if (configBox) configBox.hidden = true;
   var previewBtn = document.getElementById("sb-preview");
   if (previewBtn) {
@@ -3430,7 +3501,7 @@ async function runNode(node) {
   } catch (err) {
     console.error("SNT Orchestrator (cockpit) — runPipeline error:", err);
     delete APP.activeRun[node.id];
-    setRunBtnBusy(node.id, false);
+    refreshRunRow(node.id);
     setRunStatusLine(
       node.id,
       '<span class="rs-glyph">⚠</span> ' +
@@ -3444,7 +3515,7 @@ async function runNode(node) {
   if (!rp || !rp.success || !rp.run || !rp.run.id) {
     var info = runErrorInfo(rp && rp.errors);
     delete APP.activeRun[node.id];
-    setRunBtnBusy(node.id, false);
+    refreshRunRow(node.id);
     var baseHtml =
       '<span class="rs-glyph">⚠</span> ' +
       escapeHtml(t("msg.couldntStart") + info.text);
@@ -3474,6 +3545,55 @@ async function runNode(node) {
     runStatusCls(run.status),
   );
   pollRun(node, run.id);
+  refreshRunRow(node.id); // the run id is known now, so Stop is enabled
+}
+
+/* Ask OpenHEXA to stop the node's in-flight run. On success the run goes
+ * `terminating` -> `stopped`; the poll already watching it picks that up and
+ * finishRun re-renders. ALREADY_COMPLETED / ALREADY_STOPPED need no message:
+ * the next poll tick shows the terminal status. */
+async function stopNode(node) {
+  var runId = stoppableRunId(node);
+  if (!runId || APP.stopping[runId]) return;
+
+  APP.stopping[runId] = true;
+  refreshRunRow(node.id);
+
+  var errText = null;
+  try {
+    var data = await gql(STOP_MUTATION, { input: { runId: runId } });
+    var sp = data && data.stopPipeline;
+    if (!sp || !sp.success) {
+      var codes = ((sp && sp.errors) || []).map(String);
+      if (
+        codes.indexOf("PIPELINE_ALREADY_COMPLETED") === -1 &&
+        codes.indexOf("PIPELINE_ALREADY_STOPPED") === -1
+      )
+        errText =
+          codes.indexOf("PERMISSION_DENIED") !== -1
+            ? t("runerr.stopPermissionDenied")
+            : codes.length
+              ? t("runerr.generic", { codes: codes.join(", ") })
+              : t("msg.unknownError");
+    }
+  } catch (err) {
+    console.error("SNT Orchestrator (cockpit) — stopPipeline error:", err);
+    errText = err.message || t("msg.unknownError");
+  }
+
+  if (errText == null) {
+    // Nothing is polling this run (it should be, but don't leave Stop stuck).
+    if (APP.activeRun[node.id] !== runId) pollRun(node, runId);
+    return;
+  }
+  delete APP.stopping[runId];
+  refreshRunRow(node.id);
+  setRunStatusLine(
+    node.id,
+    '<span class="rs-glyph">⚠</span> ' +
+      escapeHtml(t("msg.couldntStop") + errText),
+    "rs-err",
+  );
 }
 
 /* The poll loop, shared by node runs (pollRun) and the catalogue refresh
@@ -3530,7 +3650,8 @@ function pollRun(node, runId) {
 
   function stop() {
     if (APP.activeRun[node.id] === runId) delete APP.activeRun[node.id];
-    setRunBtnBusy(node.id, false);
+    delete APP.stopping[runId];
+    refreshRunRow(node.id);
   }
 
   watchRun(runId, {
@@ -3544,6 +3665,7 @@ function pollRun(node, runId) {
         runStatusLineHtml(node, run),
         runStatusCls(run.status),
       );
+      refreshRunRow(node.id); // e.g. `terminating` -> "Stopping…"
     },
     done: function (run) {
       stop();
@@ -3684,6 +3806,11 @@ function wireEvents() {
       if (e.target.closest("#sb-run")) {
         var node = currentMemberNode();
         if (node) runNode(node);
+        return;
+      }
+      if (e.target.closest("#sb-stop")) {
+        var stopTarget = currentMemberNode();
+        if (stopTarget) stopNode(stopTarget);
         return;
       }
       if (e.target.closest("#sb-preview")) {

@@ -979,37 +979,90 @@ select.finput {
 .runrow {
   display: flex;
   align-items: center;
-  gap: 14px;
+  gap: 8px;
   flex-wrap: wrap;
 }
-.btn-primary {
+/* Run / Run again / Stop copy OpenHEXA's Button (Tailwind: rounded-sm, text-sm,
+   px-3 py-2.5, leading-4, font-medium, shadow-xs, blue-600 / red-600).
+   .btn-quiet (Preview config) keeps the shape but stays in the background. */
+.btn-primary,
+.btn-danger,
+.btn-quiet {
   font: inherit;
-  border: 2px solid var(--A);
-  background: var(--A);
-  color: #fff;
-  border-radius: 9px;
-  padding: 12px 26px;
-  font-size: 14.5px;
-  font-weight: 700;
+  font-size: 14px;
+  line-height: 16px;
+  font-weight: 500;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  padding: 10px 12px;
   cursor: pointer;
   display: inline-flex;
   align-items: center;
-  gap: 9px;
+  justify-content: center;
+  transition: all 0.15s ease;
+}
+.btn-primary,
+.btn-danger {
+  color: #fff;
+  box-shadow: 0 1px 2px rgb(0 0 0 / 0.05);
+}
+.btn-primary {
+  background: #155dfc;
 }
 .btn-primary:hover {
-  filter: brightness(1.06);
+  background: #1447e6;
+}
+.btn-danger {
+  background: #e7000b;
+}
+.btn-danger:hover {
+  background: #c10007;
+}
+.btn-primary:focus-visible,
+.btn-danger:focus-visible,
+.btn-quiet:focus-visible {
+  outline: none;
+  box-shadow:
+    0 0 0 2px #fff,
+    0 0 0 4px #2b7fff;
+}
+.btn-danger:focus-visible {
+  box-shadow:
+    0 0 0 2px #fff,
+    0 0 0 4px #fb2c36;
 }
 .btn-primary:disabled,
-.btn-primary.is-busy {
-  background: #eceef1;
-  border-color: var(--line);
-  color: var(--faint);
+.btn-danger:disabled {
+  opacity: 0.5;
   cursor: not-allowed;
-  filter: none;
 }
-.btn-primary.rerun {
-  background: #fff;
-  color: var(--A);
+.btn-primary:disabled:hover {
+  background: #155dfc;
+}
+.btn-danger:disabled:hover {
+  background: #e7000b;
+}
+.btn-ic {
+  width: 16px;
+  height: 16px;
+  margin: 0 6px 0 -4px;
+  flex: 0 0 auto;
+}
+.btn-quiet {
+  margin-left: auto;
+  font-size: 13px;
+  background: transparent;
+  border-color: var(--line);
+  color: var(--soft);
+}
+.btn-quiet:hover {
+  background: var(--panel);
+  color: var(--ink);
+}
+.btn-quiet.is-active {
+  background: var(--line-soft);
+  border-color: var(--faint);
+  color: var(--ink);
 }
 .btn-secondary {
   font: inherit;

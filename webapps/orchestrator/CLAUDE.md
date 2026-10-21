@@ -118,6 +118,12 @@ generic branch still prints the codes, so nothing is swallowed). The four drift 
   and re-signs on demand — never cache a signed URL.
 - **Node state:** `cockpitState(node)`, `lockedReason()` (group-aware unlock), `computeGroupInUse()`
   (mutual exclusion) — semantics in [`docs/ARCHITECTURE.md`](../../docs/ARCHITECTURE.md#node-states).
+- **Run row:** `runRowHtml` builds Run / Run again (`.btn-primary`), Stop (`.btn-danger`, only
+  while a run is in flight) and Preview config (`.btn-quiet`, pushed to the right end); the
+  styles copy OpenHEXA's Button. `refreshRunRow` rebuilds `#sb-runrow` in place on every run
+  state change (no-op if the markup is unchanged). `stopNode` calls `STOP_MUTATION`
+  (`PIPELINES_RUN`) and marks the run in `APP.stopping`; the existing poll sees `terminating` →
+  `stopped`.
 - **Panel sections:** `makeSectionsCollapsible` turns each labelled section (`.sec`) into a
   collapsible box; Documentation, Dependencies ("Before & after this step") and Run with
   Parameters start collapsed. Dependencies sits in the header

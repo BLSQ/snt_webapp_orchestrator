@@ -95,7 +95,7 @@ check before relying on them. `__typename`, `__schema` and `__type` are always a
   scope. So the orchestrator's output dataset links do not load ([APP-11](BACKLOG.md#app-11)).
 
 Available under these scopes but unused: `readFileContent` (an alternative catalog read,
-[UI-10](BACKLOG.md#ui-10)), `stopPipeline` ([UI-1](BACKLOG.md#ui-1)), `getFileByPath`.
+[UI-10](BACKLOG.md#ui-10)), `getFileByPath`.
 
 ⚠️ **Public webapps cannot call the proxy at all.** The orchestrator must stay **private**; making
 it public silently kills every query and the app cannot boot.
