@@ -515,11 +515,96 @@ body {
   opacity: 0.75;
 }
 
-/* README / link row directly under the pipeline description. */
-.sb-links {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
+/* Documentation section: the pipeline's README rendered from Markdown.
+   Headings are scaled down to sit inside the panel, and README h4s are reset
+   so they do not pick up the `.sec h4` section-header look. */
+.sb-readme {
+  font-size: 13.5px;
+  line-height: 1.55;
+  color: var(--ink);
+  max-height: 520px;
+  overflow: auto;
+}
+.sb-readme > :first-child {
+  margin-top: 0;
+}
+.sb-readme h1,
+.sb-readme h2,
+.sb-readme h3,
+.sb-readme h4,
+.sb-readme h5,
+.sb-readme h6 {
+  display: block;
+  margin: 16px 0 6px;
+  color: var(--ink);
+  letter-spacing: normal;
+  text-transform: none;
+}
+.sb-readme h1 {
+  font-size: 17px;
+}
+.sb-readme h2 {
+  font-size: 15px;
+}
+.sb-readme h3,
+.sb-readme h4,
+.sb-readme h5,
+.sb-readme h6 {
+  font-size: 13.5px;
+}
+.sb-readme h4::after {
+  content: none;
+}
+.sb-readme p,
+.sb-readme ul,
+.sb-readme ol {
+  margin: 6px 0;
+}
+.sb-readme ul,
+.sb-readme ol {
+  padding-left: 22px;
+}
+.sb-readme li {
+  margin: 2px 0;
+}
+.sb-readme code {
+  font-family: var(--mono);
+  font-size: 12px;
+  background: var(--line-soft);
+  padding: 0 3px;
+  border-radius: 3px;
+}
+.sb-readme pre {
+  background: var(--line-soft);
+  padding: 8px 10px;
+  border-radius: 6px;
+  overflow: auto;
+}
+.sb-readme pre code {
+  background: none;
+  padding: 0;
+}
+.sb-readme blockquote {
+  margin: 8px 0;
+  padding: 2px 12px;
+  border-left: 3px solid var(--A);
+  color: var(--soft);
+}
+.sb-readme table {
+  border-collapse: collapse;
+  margin: 8px 0;
+}
+.sb-readme th,
+.sb-readme td {
+  border: 1px solid var(--line);
+  padding: 4px 8px;
+  text-align: left;
+  vertical-align: top;
+}
+.sb-readme hr {
+  border: 0;
+  border-top: 1px solid var(--line-soft);
+  margin: 12px 0;
 }
 
 .ck-body {

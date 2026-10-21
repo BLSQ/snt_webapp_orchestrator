@@ -25,6 +25,8 @@ Constants at the top of `app.js` that encode contracts with the outside world:
 - `CARDS_OBJECT_KEY` — the catalog's **bucket key**. Lockstep with
   `pipelines/create_pipeline_cards/config.py` (`OUTPUT_DIR` + `WEBAPP_CARDS_PATH`); it is a runtime
   path, not a repo path. Never "fix" its `utils_pipelines/` prefix.
+- `README_DIR_KEY` — the bucket folder of the pipeline READMEs (`<id>.md`), same rules. Lockstep
+  with `config.py` (`OUTPUT_DIR` + `README_DIR`).
 - The SaaS front-end base `https://app.openhexa.org` — never derive it from `location.hostname`
   ([ADR 0010](../../docs/decisions/0010-hardcoded-saas-front-end-base.md)).
 - `GENERATOR_TEMPLATE_NAME` — the generator template's display name, used in the install deep link.
@@ -117,7 +119,13 @@ generic branch still prints the codes, so nothing is swallowed). The four drift 
 - **Node state:** `cockpitState(node)`, `lockedReason()` (group-aware unlock), `computeGroupInUse()`
   (mutual exclusion) — semantics in [`docs/ARCHITECTURE.md`](../../docs/ARCHITECTURE.md#node-states).
 - **Panel sections:** `makeSectionsCollapsible` turns each labelled section into a collapsible box;
-  Dependencies starts collapsed. The description block is not a section and stays open.
+  Documentation and Dependencies start collapsed. The description block is not a section and stays
+  open.
+- **Documentation section:** `wireReadmeSection` → `loadReadme` fetches `readmes/<id>.md` the
+  first time the box is opened, caches it in `APP.readmeById` (a missing file is not cached, so
+  it is retried on the next render) and renders it with `renderMarkdown`. The renderer escapes
+  all source text before adding tags and only links `http(s)` URLs; keep it that way (it feeds
+  `innerHTML`). `mdLite` is the separate, smaller renderer for the bundled descriptions.
 
 ## After changing anything here
 
