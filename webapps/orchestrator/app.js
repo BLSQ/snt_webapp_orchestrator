@@ -151,6 +151,12 @@ var GENERATOR_QUERY =
 var CARDS_OBJECT_KEY =
   "utils_pipelines/create_pipeline_cards/pipeline_cards/pipeline_cards.json";
 
+/* Where the same pipeline writes each curated pipeline's README, as <id>.md,
+ * copied from the deployed version's code (the proxy does not let webapps read
+ * PipelineVersion.files — OH-3). Lockstep with config.py (OUTPUT_DIR +
+ * README_DIR). */
+var README_DIR_KEY = "utils_pipelines/create_pipeline_cards/pipeline_cards/readmes";
+
 async function fetchJson(url) {
   var res = await fetch(url);
   if (!res.ok)
@@ -393,15 +399,208 @@ function mdLite(s) {
   return html.replace(/\n/g, "<br>");
 }
 
+/* Markdown renderer for the pipeline READMEs (Documentation section). Covers
+ * what the SNT READMEs use: headings, rules, nested bullet / numbered lists,
+ * block quotes, fenced code, pipe tables, bold, italic, `code` and links.
+ * Every piece of source text is escaped before any tag is added, so raw HTML
+ * in a README shows as text; only http(s) links become <a> (relative links
+ * point into the source repo, so they render as plain text). */
+var MD_LIST = /^(\s*)([*+-]|\d+[.)])\s+(.*)$/;
+var MD_HR = /^ {0,3}([-*_])(\s*\1){2,}\s*$/;
+var MD_HEAD = /^ {0,3}(#{1,6})\s+(.*?)\s*#*\s*$/;
+var MD_FENCE = /^\s*(```|~~~)/;
+var MD_TABLE_SEP = /^\s*\|?\s*:?-+:?\s*(\|\s*:?-+:?\s*)*\|?\s*$/;
+
+function mdInline(text) {
+  var codes = [];
+  var s = text.replace(/`([^`]+)`/g, function (_, c) {
+    codes.push("<code>" + escapeHtml(c) + "</code>");
+    return "\u0000" + (codes.length - 1) + "\u0000";
+  });
+  s = escapeHtml(s);
+  s = s.replace(/\[([^\]]+)\]\(([^)\s]+)\)/g, function (_, label, url) {
+    return /^https?:\/\//i.test(url)
+      ? '<a href="' + url + '" target="_blank" rel="noopener">' + label + "</a>"
+      : label;
+  });
+  s = s.replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>");
+  s = s.replace(/(^|[^*\w])\*(?!\s)([^*]+?)\*(?!\w)/g, "$1<em>$2</em>");
+  s = s.replace(/(^|[^\w])_(?!\s)([^_]+?)_(?!\w)/g, "$1<em>$2</em>");
+  return s.replace(/\u0000(\d+)\u0000/g, function (_, i) {
+    return codes[+i];
+  });
+}
+
+function mdIndent(line) {
+  return line.match(/^\s*/)[0].replace(/\t/g, "    ").length;
+}
+
+function mdDedent(lines) {
+  var min = Infinity;
+  lines.forEach(function (l) {
+    if (l.trim()) min = Math.min(min, mdIndent(l));
+  });
+  if (!isFinite(min)) return lines;
+  return lines.map(function (l) {
+    return l.replace(/\t/g, "    ").slice(Math.min(min, mdIndent(l)));
+  });
+}
+
+function mdStartsBlock(line, next) {
+  return (
+    MD_HEAD.test(line) ||
+    MD_HR.test(line) ||
+    MD_FENCE.test(line) ||
+    /^\s*>/.test(line) ||
+    MD_LIST.test(line) ||
+    (/^\s*\|/.test(line) && next !== undefined && MD_TABLE_SEP.test(next))
+  );
+}
+
+function mdCells(row) {
+  return row
+    .trim()
+    .replace(/^\|/, "")
+    .replace(/\|$/, "")
+    .split("|")
+    .map(function (c) {
+      return c.trim();
+    });
+}
+
+// A list block: items at the first item's indent become <li>; deeper lines
+// (sub-lists, wrapped text) are rendered recursively inside the item.
+function mdList(lines) {
+  var base = mdIndent(lines[0]);
+  var tag = /\d/.test(lines[0].match(MD_LIST)[2]) ? "ol" : "ul";
+  var items = [];
+  lines.forEach(function (l) {
+    var m = l.match(MD_LIST);
+    if (m && mdIndent(l) <= base) items.push({ head: m[3], body: [] });
+    else if (items.length) items[items.length - 1].body.push(l);
+  });
+  return (
+    "<" + tag + ">" +
+    items
+      .map(function (it) {
+        var body = it.body.filter(function (l) {
+          return l.trim();
+        });
+        // Wrapped text of the item itself joins its first line.
+        var lazy = [];
+        while (
+          body.length &&
+          !MD_LIST.test(body[0]) &&
+          mdIndent(body[0]) <= base + 3 &&
+          !mdStartsBlock(body[0].trim())
+        )
+          lazy.push(body.shift().trim());
+        var head = [it.head].concat(lazy).join(" ");
+        return (
+          "<li>" + mdInline(head) + (body.length ? mdBlocks(mdDedent(body)) : "") + "</li>"
+        );
+      })
+      .join("") +
+    "</" + tag + ">"
+  );
+}
+
+function mdBlocks(lines) {
+  var out = [];
+  var i = 0;
+  var m;
+  while (i < lines.length) {
+    var line = lines[i];
+    if (!line.trim()) {
+      i++;
+    } else if (MD_FENCE.test(line)) {
+      var fence = line.trim().slice(0, 3);
+      var code = [];
+      i++;
+      while (i < lines.length && lines[i].trim().indexOf(fence) !== 0) code.push(lines[i++]);
+      i++;
+      out.push("<pre><code>" + escapeHtml(code.join("\n")) + "</code></pre>");
+    } else if ((m = line.match(MD_HEAD))) {
+      out.push("<h" + m[1].length + ">" + mdInline(m[2]) + "</h" + m[1].length + ">");
+      i++;
+    } else if (MD_HR.test(line)) {
+      out.push("<hr>");
+      i++;
+    } else if (/^\s*>/.test(line)) {
+      var quote = [];
+      while (i < lines.length && /^\s*>/.test(lines[i]))
+        quote.push(lines[i++].replace(/^\s*>\s?/, ""));
+      out.push("<blockquote>" + mdBlocks(quote) + "</blockquote>");
+    } else if (/^\s*\|/.test(line) && MD_TABLE_SEP.test(lines[i + 1] || "")) {
+      var head = mdCells(line);
+      var rows = [];
+      i += 2;
+      while (i < lines.length && /^\s*\|/.test(lines[i])) rows.push(mdCells(lines[i++]));
+      out.push(
+        "<table><thead><tr>" +
+          head
+            .map(function (c) {
+              return "<th>" + mdInline(c) + "</th>";
+            })
+            .join("") +
+          "</tr></thead><tbody>" +
+          rows
+            .map(function (r) {
+              return (
+                "<tr>" +
+                r
+                  .map(function (c) {
+                    return "<td>" + mdInline(c) + "</td>";
+                  })
+                  .join("") +
+                "</tr>"
+              );
+            })
+            .join("") +
+          "</tbody></table>",
+      );
+    } else if (MD_LIST.test(line)) {
+      var base = mdIndent(line);
+      var block = [];
+      while (i < lines.length) {
+        var l = lines[i];
+        if (!l.trim()) {
+          // A blank line ends the list unless the list carries on after it.
+          var nxt = lines[i + 1] || "";
+          if (
+            nxt.trim() &&
+            (mdIndent(nxt) > base || (MD_LIST.test(nxt) && mdIndent(nxt) >= base))
+          ) {
+            block.push(l);
+            i++;
+            continue;
+          }
+          break;
+        }
+        if (mdIndent(l) < base) break;
+        if (mdIndent(l) === base && !MD_LIST.test(l) && mdStartsBlock(l, lines[i + 1])) break;
+        block.push(l);
+        i++;
+      }
+      out.push(mdList(block));
+    } else {
+      var para = [];
+      while (i < lines.length && lines[i].trim() && !mdStartsBlock(lines[i], lines[i + 1]))
+        para.push(lines[i++].trim());
+      out.push("<p>" + mdInline(para.join(" ")) + "</p>");
+    }
+  }
+  return out.join("\n");
+}
+
+function renderMarkdown(md) {
+  return mdBlocks(String(md).replace(/\r\n?/g, "\n").split("\n"));
+}
+
 // The main OpenHEXA front-end lives at app.openhexa.org (a different domain from
 // the *.openhexa.io static-webapp host) — hardcoded for the SaaS.
 function appBaseUrl() {
   return "https://app.openhexa.org";
-}
-
-var GITHUB_REPO = "https://github.com/BLSQ/snt_development";
-function githubFolderUrl(id) {
-  return GITHUB_REPO + "/tree/main/" + encodeURIComponent(id);
 }
 
 function parseRunDate(s) {
@@ -601,7 +800,9 @@ var I18N = {
     "heading.dependencies": "Dependencies",
     "heading.runParams": "Run with Parameters",
     "heading.latestOutputs": "Latest outputs",
-    "heading.more": "More",
+    "heading.documentation": "Documentation",
+    "readme.loading": "Loading the documentation…",
+    "readme.unavailable": "Documentation not available, re-run Create pipeline_cards.",
     // dependency columns
     "dep.requires": "Requires (hard)",
     "dep.uses": "Uses if available (soft)",
@@ -708,8 +909,6 @@ var I18N = {
     "report.couldntPreview": "Couldn’t load the preview here. ",
     "report.openNewTab": "Open in a new tab ↗",
     // external links
-    "link.readmeGithub": "README on GitHub",
-    "link.seeWhat": "see what this pipeline does",
     // missing / not-installed panel
     "missing.title": "This pipeline isn’t installed in this workspace yet.",
     "missing.body":
@@ -808,7 +1007,9 @@ var I18N = {
     "heading.dependencies": "Dépendances",
     "heading.runParams": "Exécuter avec paramètres",
     "heading.latestOutputs": "Derniers résultats",
-    "heading.more": "Plus",
+    "heading.documentation": "Documentation",
+    "readme.loading": "Chargement de la documentation…",
+    "readme.unavailable": "Documentation non disponible, relancez Create pipeline_cards.",
     // dependency columns
     "dep.requires": "Requis (obligatoire)",
     "dep.uses": "Utilisé si disponible (optionnel)",
@@ -918,8 +1119,6 @@ var I18N = {
     "report.couldntPreview": "Impossible d’afficher l’aperçu ici. ",
     "report.openNewTab": "Ouvrir dans un nouvel onglet ↗",
     // external links
-    "link.readmeGithub": "README sur GitHub",
-    "link.seeWhat": "voir ce que fait ce pipeline",
     // missing / not-installed panel
     "missing.title": "Ce pipeline n’est pas encore installé dans cet espace de travail.",
     "missing.body":
@@ -1014,6 +1213,7 @@ var APP = {
   generator: null, // {id, code} of create_pipeline_cards once looked up (identity only)
   generatorLookup: false, // that lookup is in flight
   genRefresh: null, // the catalogue-refresh run this page is watching (resolveGeneratorRefresh)
+  readmeById: {}, // node id -> README Markdown, once fetched (loadReadme)
 };
 
 /* ================================================================== *
@@ -2136,14 +2336,9 @@ function renderCockpit() {
     groupExclusionNoticeHtml(node) +
     "</div>" +
     (desc ? '<p class="desc">' + mdLite(desc) + "</p>" : "") +
-    '<div class="sb-links">' +
-    extLinkHtml(
-      githubFolderUrl(node.id),
-      "▤",
-      t("link.readmeGithub"),
-      "snt_development / " + node.id,
-    ) +
-    "</div>" +
+    '<div class="sec" id="sb-readme-sec"><h4>' +
+    escapeHtml(t("heading.documentation")) +
+    '</h4><div id="sb-readme" class="sb-readme"></div></div>' +
     '<div class="sec"><h4>' +
     escapeHtml(t("heading.dependencies")) +
     '</h4><div class="deps">' +
@@ -2171,11 +2366,16 @@ function renderCockpit() {
   var wrap2 = document.querySelector(".cockpit-wrap");
   if (wrap2) wrap2.scrollTop = 0;
 
-  // Turn each labelled section (Dependencies, Choose a method, Parameters,
-  // Latest outputs) into its own collapsible box. The description block above
-  // Dependencies isn't a `.sec`, so it stays permanently open. Dependencies
-  // starts collapsed (it's the tallest — PRODUCT_SPEC §8, Dependencies).
-  makeSectionsCollapsible(ck, [t("heading.dependencies").toLowerCase()]);
+  // Turn each labelled section (Documentation, Dependencies, Choose a method,
+  // Parameters, Latest outputs) into its own collapsible box. The description
+  // block above them isn't a `.sec`, so it stays permanently open.
+  // Documentation and Dependencies start collapsed (the two tallest —
+  // PRODUCT_SPEC §8, Dependencies).
+  makeSectionsCollapsible(ck, [
+    t("heading.documentation").toLowerCase(),
+    t("heading.dependencies").toLowerCase(),
+  ]);
+  wireReadmeSection(node);
 
   // If a run for this node is already in flight (navigated away + back), reflect
   // it: disable the button + show the live status line.
@@ -2257,14 +2457,54 @@ function makeSectionsCollapsible(root, collapsedPrefixes) {
   });
 }
 
+/* ------------------------------------------------------------------ *
+ * Documentation section: the pipeline's README, as deployed in this
+ * workspace. create_pipeline_cards copies it to the bucket (README_DIR_KEY);
+ * it is fetched the first time the section is opened, then kept in
+ * APP.readmeById for the session (the README only changes when the
+ * generator re-runs, which already needs a reload for the catalog).
+ * ------------------------------------------------------------------ */
+function wireReadmeSection(node) {
+  var sec = document.getElementById("sb-readme-sec");
+  var h = sec && sec.querySelector("h4");
+  if (!h) return;
+  function maybeLoad() {
+    if (sec.getAttribute("data-open") === "1") loadReadme(node);
+  }
+  // Registered after makeSectionsCollapsible's toggle, so data-open is current.
+  h.addEventListener("click", maybeLoad);
+  h.addEventListener("keydown", function (e) {
+    if (e.key === "Enter" || e.key === " ") maybeLoad();
+  });
+  maybeLoad();
+}
+
+async function loadReadme(node) {
+  var box = document.getElementById("sb-readme");
+  if (!box || box.getAttribute("data-state")) return;
+  var md = APP.readmeById[node.id];
+  if (md == null) {
+    box.setAttribute("data-state", "loading");
+    box.innerHTML = '<span class="sb-muted">' + escapeHtml(t("readme.loading")) + "</span>";
+    try {
+      var url = await mintDownloadUrl(workspaceSlug(), README_DIR_KEY + "/" + node.id + ".md");
+      var res = url ? await fetch(url) : null;
+      if (res && res.ok) md = APP.readmeById[node.id] = await res.text();
+    } catch (e) {
+      md = null;
+    }
+    // The user may have moved to another step while this was loading.
+    if (APP.selectedId !== node.id || box !== document.getElementById("sb-readme")) return;
+  }
+  box.setAttribute("data-state", md == null ? "missing" : "loaded");
+  box.innerHTML =
+    md == null
+      ? '<span class="sb-muted">' + escapeHtml(t("readme.unavailable")) + "</span>"
+      : renderMarkdown(md);
+}
+
 function missingBodyHtml(node) {
   var slug = workspaceSlug();
-  var links = extLinkHtml(
-    githubFolderUrl(node.id),
-    "▤",
-    t("link.readmeGithub"),
-    t("link.seeWhat"),
-  );
   // Step 1's "OpenHEXA pipeline templates" is the templates link itself;
   // plain text outside OpenHEXA.
   var templatesHtml = escapeHtml(t("missing.templatesWords"));
@@ -2316,11 +2556,6 @@ function missingBodyHtml(node) {
         mdLite(pickLang(node.description)) +
         "</p>"
       : "") +
-    '<div class="sec" style="margin-top:14px"><h4>' +
-    escapeHtml(t("heading.more")) +
-    '</h4><div class="outputs">' +
-    links +
-    "</div></div>" +
     (slug
       ? ""
       : '<p class="sb-muted" style="margin-top:10px">' +

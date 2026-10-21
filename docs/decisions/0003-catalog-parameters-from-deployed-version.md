@@ -25,7 +25,7 @@ the form could offer parameters the installed pipeline did not accept, and a run
 - What can still drift is the catalog vs the workspace *now*: a pipeline upgraded after the last
   generator run. The fix is always to re-run the generator, never to hand-edit the catalog.
 - The pipeline README link in the app still points at GitHub `main`, so documentation can still
-  drift from the installed version (a separate, open question: [UI-6](../BACKLOG.md#ui-6)).
+  drift from the installed version (settled later by [ADR 0016](0016-readmes-from-deployed-version.md)).
 - `version_name` / `version_number` are not read by the app yet; they exist for a future drift
   check ([UI-8](../BACKLOG.md#ui-8)).
 - Parameter labels and help text are English, because they come from pipeline source

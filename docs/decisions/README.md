@@ -37,6 +37,7 @@ who made it move on. Format after Michael Nygard's
 | [0013](0013-fresh-repo-without-history.md) | A fresh public repo from one snapshot; history and `deprecated/` stay in the archived repo | Accepted | 2026-10-20 |
 | [0014](0014-ship-openhexa-dev-js.md) | Ship OpenHEXA's `dev.js` in the bundle for local development | Accepted | 2026-10-20 |
 | [0015](0015-webapp-may-run-the-generator.md) | The webapp may run the catalogue generator | Accepted | 2026-10-21 |
+| [0016](0016-readmes-from-deployed-version.md) | Pipeline READMEs come from the deployed version, copied by the generator | Accepted | 2026-10-21 |
 
 ## Template
 

@@ -28,6 +28,9 @@ For the workspace it runs in, it:
 5. Archives any previously generated file into a `historical/` subfolder (timestamped), then
    writes the new `pipeline_cards.json` to the pipeline's output directory in the workspace's
    file storage.
+6. Empties the `readmes/` subfolder, then writes each kept pipeline's root-level `readme.md`
+   (from its deployed version, matched case-insensitively) there as `<id>.md`. A pipeline with no
+   README is logged as a warning and skipped.
 
 The output matches the contract in `contracts/pipeline_cards.schema.json`. **It is consumed in place:**
 the orchestrator webapp fetches it straight out of the workspace's file storage at page load, so
@@ -75,6 +78,12 @@ where this folder lives in the repo). The webapp hardcodes it as `CARDS_OBJECT_K
 the webapp's `FILES_READ` scope). Changing `OUTPUT_DIR` or `WEBAPP_CARDS_PATH` therefore means
 changing `CARDS_OBJECT_KEY` and redeploying the webapp — otherwise every orchestrator
 in every workspace stops booting.
+
+The READMEs go to `<workspace files>/utils_pipelines/create_pipeline_cards/pipeline_cards/readmes/<id>.md`
+(`config.OUTPUT_DIR` / `config.README_DIR`). The folder is emptied on every run, with no
+`historical/` copy, so it only holds the READMEs of the current catalog. This path is a contract
+too: `README_DIR_KEY` in `app.js`. The app's **Documentation** section reads these files
+([ADR 0016](../../docs/decisions/0016-readmes-from-deployed-version.md)).
 
 Nothing needs to be downloaded, committed, or redeployed after a run: the app reads the new file on
 its next page load. The pipeline does not push to the repo or touch the webapp bundle.

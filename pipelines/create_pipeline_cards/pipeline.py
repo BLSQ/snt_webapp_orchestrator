@@ -25,6 +25,11 @@ def create_pipeline_cards():
     pipeline_cards = add_parameters(workspace_slug, pipeline_cards)
     move_files_to_historical(Path(workspace.files_path) / config.OUTPUT_DIR)
     save_json(pipeline_cards, Path(workspace.files_path) / config.OUTPUT_DIR)
+    save_readmes(
+        workspace_slug,
+        pipeline_cards,
+        Path(workspace.files_path) / config.OUTPUT_DIR / config.README_DIR,
+    )
 
 # ---------------------------------------------------------------------------
 # Webapp helpers
@@ -281,6 +286,29 @@ def extract_pipeline_code(files: list[dict] | None, pipeline_code: str) -> str |
     )
 
 
+def extract_readme(files: list[dict] | None) -> str | None:
+    """Extract the README at the root of the pipeline's deployed files.
+
+    Parameters
+    ----------
+    files : list[dict] | None
+        The files of the pipeline's current version, each with ``path`` and ``content``.
+
+    Returns
+    -------
+    str | None
+        The README's Markdown, or None if the version has no root-level README.
+    """
+    return next(
+        (
+            one_file.get("content")
+            for one_file in files or []
+            if (one_file.get("path") or "").lower() == config.PIPELINE_README_FILE
+        ),
+        None,
+    )
+
+
 def extract_function_name(source: str, pipeline_code: str) -> str | None:
     """Extract the pipeline's Python function name from its deployed source.
 
@@ -495,6 +523,47 @@ def save_json(pipeline_cards: dict[str, str | list[dict]], output_dir: Path):
     with open(file_path, "w") as f:
         json.dump(pipeline_cards, f, indent=4)
     current_run.log_info(f"Dictionary saved successfully at {file_path}.")
+
+
+def save_readmes(
+    workspace_slug: str, pipeline_cards: dict[str, str | list[dict]], readme_dir: Path
+) -> None:
+    """Save each curated pipeline's README, from its deployed version, as ``<id>.md``.
+
+    The folder is emptied first, so it only ever holds the READMEs of the current
+    catalog. When two pipelines share an id, the later one wins, as in the webapp.
+
+    Parameters
+    ----------
+    workspace_slug : str
+        The workspace slug.
+    pipeline_cards : dict[str, str | list[dict]]
+        The curated pipeline cards.
+    readme_dir : Path
+        The directory to save the READMEs in. Created if it does not exist.
+    """
+    if readme_dir.is_dir():
+        for old_file in readme_dir.iterdir():
+            if old_file.is_file():
+                old_file.unlink()
+    readme_dir.mkdir(parents=True, exist_ok=True)
+
+    saved = 0
+    for one_pipeline in pipeline_cards["pipelines"]:
+        pipeline_code = one_pipeline["openhexa_code"]
+        current_version = get_current_version(workspace_slug, pipeline_code)
+        readme = extract_readme((current_version or {}).get("files"))
+        if readme is None:
+            current_run.log_warning(
+                f"No {config.PIPELINE_README_FILE} in the deployed version of "
+                f"{pipeline_code}: the webapp will show no documentation for it"
+            )
+            continue
+
+        (readme_dir / f"{one_pipeline['id']}.md").write_text(readme, encoding="utf-8")
+        saved += 1
+
+    current_run.log_info(f"{saved} README(s) saved at {readme_dir}.")
 
 
 if __name__ == "__main__":

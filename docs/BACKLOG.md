@@ -85,6 +85,27 @@ DHIS2/custom connection dropdowns never load and users must type a slug. Ask for
 secret fields) under `USER_READ` or a new scope. Until then the app's text fallback stands; the
 dropdown and the "no connection of this type" note activate on their own once the query passes.
 
+### <a id="oh-3"></a>OH-3 · Ask OpenHEXA to allow `PipelineVersion.files` through the webapp proxy
+
+The app shows each pipeline's README for the version deployed in the workspace
+([ADR 0016](decisions/0016-readmes-from-deployed-version.md)). It would rather read it straight
+from the version's code:
+
+```graphql
+query ($id: UUID!) { pipelineVersion(id: $id) { files { name path content encoding } } }
+```
+
+`PIPELINES_READ` unlocks the top-level `pipelineVersion`, but its `SCOPE_GRANTS` entry
+(openhexa-app `backend/hexa/webapps/scopes.py`) lists only 16 `PipelineVersion` fields (`id`,
+`versionNumber`, `parameters`, `config`, …), not `files` or `zipfile`. `FileNode` is granted to
+no scope either, so the proxy refuses the whole query. Ask for `PipelineVersion.files` and
+`FileNode` (`name`, `path`, `type`, `content`, `encoding`) under `PIPELINES_READ` or a new
+read-only scope. A README is no more sensitive than the parameters and config that are already
+granted, but `files` also exposes the pipeline's source code, which is the question to put to the
+devs. Until then, `create_pipeline_cards` copies each README into the bucket and the app reads it
+with `FILES_READ`. If this is granted, the app could read READMEs directly, the copies could go,
+and a README would match the deployed version even before the generator re-runs.
+
 ## Workspace operations
 
 ### <a id="ops-1"></a>OPS-1 · Unpublish the live Flowchart webapps?
@@ -138,12 +159,6 @@ Parameter labels, help and choices come from the catalog and are English only. P
 ### <a id="ui-5"></a>UI-5 · Review the French strings
 
 `I18N.fr` and the `fr` sides of the data files are drafts pending Giulia's review.
-
-### <a id="ui-6"></a>UI-6 · README drift
-
-The detail panel links to the pipeline README on GitHub `main`, which may not match the installed
-version. Candidate: show the template's "Template Documentation" in-app. Open question for the team:
-how is that field linked to GitHub? ([`PRODUCT_SPEC.md` §10 item 8](PRODUCT_SPEC.md#10-open-decisions-for-the-pm-with-recommended-version-placement))
 
 ### <a id="ui-7"></a>UI-7 · Per-type counts in the collapsed Dependencies header
 

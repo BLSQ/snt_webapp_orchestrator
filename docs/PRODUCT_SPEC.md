@@ -77,7 +77,7 @@ The persona below is the agreed design target. **Design for the floor, not the c
 - **Mental model — partial.** The user understands **what a pipeline is** (input → process →
   output, chained). But they **do not** reliably know **which pipeline to run in what order**,
   **what each pipeline produces**, or the meaning of the **type labels** unaided. → **The app must
-  make all of this discoverable in-context** (descriptions, README links, a legend, guidance).
+  make all of this discoverable in-context** (descriptions, in-app READMEs, a legend, guidance).
 - **Parameters — not a comfortable concept.** Users are **not** inherently comfortable with the
   idea of parameters (settings chosen before a run that change its behaviour). Yet parameters are
   central to the product's value: they expose the context-specific decisions the analyst is meant
@@ -133,9 +133,11 @@ The persona below is the agreed design target. **Design for the floor, not the c
   every **hard** upstream prerequisite has a completed run; it unlocks live as prerequisites
   succeed. Locking is **group-aware** (any one member of an alternative group satisfies the
   prerequisite) and **optional links are non-gating** (listed, but they do not lock).
+- **The pipeline's README, in-app**, for the version installed in the workspace, in a collapsible
+  box.
 - **Links out to the deeper OpenHEXA views** (the live run with logs, the output datasets, the
-  pipeline's README on GitHub, the templates page to install a missing pipeline) for anyone who
-  wants more detail or needs to act outside the app's scope.
+  templates page to install a missing pipeline) for anyone who wants more detail or needs to act
+  outside the app's scope.
 
 ### 4.1 The pipeline map (the process model)
 
@@ -188,14 +190,14 @@ roadmap builds on. Technical detail: [`OPENHEXA_WEBAPP_RUNTIME.md`](OPENHEXA_WEB
 | --- | --- | --- | --- | --- |
 | F1  | **Live, persistent status board** | On every load, each pipeline shows its real last-run status; true for the whole team, across reloads and days. | `pipelines(workspaceSlug:)` → `runs(orderBy: EXECUTION_DATE_DESC, perPage:1)`, under `PIPELINES_READ`. | ✅ |
 | F2  | **Missing-pipeline detection** | Pipelines not installed here are greyed; a panel explains they're standard and deep-links to the templates page. Once installed, the step goes live as soon as the catalog is regenerated — no redeploy. | A step is available iff its `id` is in the workspace's catalog (with a `uuid`); otherwise greyed. | ✅ |
-| F3  | **Pipeline detail panel** | Name/code/type, a description of what the pipeline does, and a link to its GitHub README. | Static content from the map, descriptions and catalog + `github.com/BLSQ/snt_development/tree/main/<pipeline_id>`. | ✅ |
+| F3  | **Pipeline detail panel** | Name/code/type, a description of what the pipeline does, and its README for the installed version in a collapsible **Documentation** box. | Static content from the map, descriptions and catalog; the README is copied from the deployed version by the generator and read from the bucket when the box is opened ([ADR 0016](decisions/0016-readmes-from-deployed-version.md)). | ✅ |
 | F4  | **Parameter form + config preview** | A typed input per parameter (checkbox, number, dropdown, multi-select, **connection dropdown**), help text, sensible defaults; a "preview config" toggle shows the exact package to be sent. | Form generated from the catalog; connection dropdown from `workspace { connections }` (`USER_READ`, else a text fallback; the proxy currently refuses it, so the text fallback shows — [OH-2](BACKLOG.md#oh-2)). | ✅ |
 | F5  | **Run + poll** | A Run button launches the pipeline and polls it to completion, live-updating the step. | `runPipeline` mutation, params as a `config` object (connections passed by **slug**). Needs `PIPELINES_RUN`. | ✅ |
 | F6  | **Outputs & report links** | After a run, links to its output **datasets** and **files**; the **HTML report** opens via a signed URL. | `pipelineRun.outputs` (union) + `prepareObjectDownload` signed URL. Needs `FILES_READ`. | ✅ |
 | F7  | **Mutual exclusion (alt. groups)** | For a choose-one method group, shows which member is **in use** (holds the latest success) and marks the others superseded. | Derived client-side from run history + the map's `group`. Only a _succeeding_ run moves the "in use" mark. | ✅ |
 | F8  | **Dependency lists** | Each step lists what it **requires**, what it **unlocks next**, and what it **uses if available**; hard and optional links are told apart. | Derived client-side from the map's `edges`. No layout library / CDN. | ✅ |
 | F9  | **Dependency hard-locking** | A step is locked (Run disabled) until every hard prerequisite has completed; unlocks live. Group-aware; optional links don't gate. | Computed client-side from map edges + the F1 status board. | ✅ |
-| F10 | **Deep links out to OpenHEXA** | Jump to the live run (logs/messages), output datasets, the GitHub README, or the templates page. | Links to `app.openhexa.org` pages built client-side. | ✅ |
+| F10 | **Deep links out to OpenHEXA** | Jump to the live run (logs/messages), output datasets, or the templates page. | Links to `app.openhexa.org` pages built client-side. | ✅ |
 
 **The per-workspace catalog.** The list of installed pipelines and their parameters (which drives
 F2 and F4) is generated in each workspace by a companion pipeline, `create_pipeline_cards`, and
@@ -207,8 +209,8 @@ level this means:
   not-installed step's panel can run the generator itself (**Refresh the catalogue**, then
   **Reload page**; [ADR 0015](decisions/0015-webapp-may-run-the-generator.md)).
 - **The parameter form matches the version actually installed** in the workspace
-  ([ADR 0003](decisions/0003-catalog-parameters-from-deployed-version.md)). This is a _different_
-  problem from the README drift in §8, which is about documentation and is still open.
+  ([ADR 0003](decisions/0003-catalog-parameters-from-deployed-version.md)), and so does the README
+  ([ADR 0016](decisions/0016-readmes-from-deployed-version.md)).
 - **A workspace must have the generator run once before the app works** — otherwise the app
   explains what is missing and links to the fix.
 
@@ -259,9 +261,10 @@ side product and is parked ([ADR 0009](decisions/0009-cockpit-only-flowchart-par
 - **Embedded HTML report (v1). ✅ Built.** Rather than only link out to the run's HTML report (F6),
   its **content renders in a box at the bottom of the step**, so the user reads the result without
   leaving the app (an `<iframe>` on a freshly signed URL, re-signed on demand).
-- **Documentation source — README drift (planned v1).** The detail panel links to each pipeline's
-  **README on GitHub `main`** (F3), which reflects the _latest_ pipeline version and may not match
-  the (possibly older) version **installed** in the workspace. See §10 item 8.
+- **Documentation source — README of the installed version (v1). ✅ Built.** The step shows the
+  pipeline's README in a collapsible **Documentation** box (starts collapsed), taken from the
+  version **installed** in the workspace rather than GitHub `main`, which may be newer (F3, §10
+  item 8). The README is shown as written; French follows when the READMEs are translated.
 
 ---
 
@@ -288,7 +291,7 @@ Items in _italics_ are open decisions (§10) placed at their **recommended** ver
 | **Deployment scope** | Development and test workspaces only | A **real country workspace** for a pilot NMP team | Further country workspaces |
 | **Per-pipeline descriptions** | Placeholder / partial one-liners | **Short paragraph per pipeline** (what it is / produces / how to read it); PM seeds a couple, Giulia completes the rest — 🔨 **2 of 18 done** (A.1, A.2) | Richer per-step "how to read this" content |
 | **Guidance / narrative** | Guided one-step-at-a-time structure; minimal copy | — (**full narrative layer parked**, §7) | _Full narrative layer_ — per-step plain-language walkthrough; onboarding "start here" tour |
-| **Documentation source** | README link to GitHub `main` (F3) | **Resolve GitHub-README vs installed-version drift**; explore surfacing the template's **"Template Documentation"** in-app | — |
+| **Documentation source** | README link to GitHub `main` (F3) | ✅ **Built** — README of the installed version shown in-app | — |
 | **Dependencies display** | Full Requires/Unlocks/Uses lists | ✅ **Built** — sections collapsible; Dependencies starts collapsed. _Per-type counts not built_ (§10 item 9) | — |
 | **Report viewing** | HTML report via signed-URL link-out (F6) | ✅ **Built** — report embedded at the bottom of the step | — |
 | **Localization** | English only | ✅ **Built** — single-app **EN/FR toggle** (persisted, `?lang=` deep link). ⚠️ French copy is **draft, pending review** | French-first; more languages as needed |
@@ -340,12 +343,9 @@ confirm or move it. Item numbers are stable references; resolved items keep thei
    map ever becomes user-facing is recorded with the parked code in
    [`deprecated/flowchart/README.md`](https://github.com/BLSQ/OpenHEXA-WebApp-Diary/blob/bbd02388f0104d809e55a81f5b84b29ce6b569bd/deprecated/flowchart/README.md)
    in the archived predecessor repo.
-8. **Documentation source — README drift vs "Template Documentation" — _v1._** The detail panel
-   links to each pipeline's README on GitHub `main`, which may not match the version **installed**
-   in the workspace. A candidate route: pipelines installed from a template carry a **"Template
-   Documentation"** field (equivalent to the README) that could be **shown in-app** (e.g. a popup)
-   instead of linking out. **Question for the team (Giulia to ask):** how is the template
-   pipeline's "Template Documentation" field linked to GitHub? ([UI-6](BACKLOG.md#ui-6))
+8. **Documentation source — _v1 (✅ built; resolved)._** The step shows the README of the version
+   **installed** in the workspace, in-app, instead of linking to GitHub `main` (§8,
+   [ADR 0016](decisions/0016-readmes-from-deployed-version.md)).
 9. **Condense the Dependencies section — _v1 (✅ built; one sub-question left)._** Every panel
    section is a collapsible box and Dependencies **starts collapsed** (§8). **Still open:** are the
    **per-type counts** in the collapsed header (_"Requires (2 pipelines)"_ / _"Unlocks (11
