@@ -31,7 +31,10 @@ Constants at the top of `app.js` that encode contracts with the outside world:
   If the template is renamed, the link breaks silently.
 - `POLL_INTERVAL_MS` / `POLL_MAX_ATTEMPTS` — poll every 5 s for up to 40 min, then show "stopped
   watching — still running in OpenHEXA". `RUN_ACTIVE_STATUSES` / `isRunFinished` keep polling
-  through `terminating`.
+  through `terminating`. Polls start from `runNode` and, at boot, from `resumeInFlightPolls` for
+  any latest run still in flight (a reload gets a fresh 40-min budget). The pill's time comes from
+  `runTimeText`: `duration` once finished, client-side elapsed since `executionDate` while in
+  flight, nothing if there is no `executionDate` yet.
 
 ## Bilingual text
 

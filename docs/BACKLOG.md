@@ -186,7 +186,7 @@ Check that `/pipelines/?tab=templates` still lands on the templates tab.
 ### <a id="app-5"></a>APP-5 · Long runs stop being watched after 40 min
 
 Polling ends with "stopped watching — still running in OpenHEXA". Fine, or extend it / pair it with
-UI-9?
+UI-9? Reloading the page resumes polling with a fresh 40-min budget.
 
 ### <a id="app-8"></a>APP-8 · Deep-link step 1 of the not-installed panel to the step's own template
 
