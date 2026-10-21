@@ -776,7 +776,7 @@ var I18N = {
     "legend.installed": "Installed:",
     "legend.locked": "Locked — run its prerequisites first",
     // tracks
-    "track.A": "Track A · Routine Surveillance Data",
+    "track.A": "Track A · Routine surveillance data",
     "track.B": "Track B · Geo & raster",
     "track.C": "Track C · DHS surveys",
     "track.D": "Track D · Climate",
@@ -1339,6 +1339,13 @@ function lockedReason(id) {
 // Track accent colors only; the human-readable track/status/stage names now
 // live in the I18N table (see t("track.A"), t("status.ok"), etc.).
 var TRK_COLOR = { A: "var(--A)", B: "var(--B)", C: "var(--C)", D: "var(--D)" };
+// Text colour that reads on each track colour (white or ink, see styles.css).
+var TRK_INK = {
+  A: "var(--A-ink)",
+  B: "var(--B-ink)",
+  C: "var(--C-ink)",
+  D: "var(--D-ink)",
+};
 // Glyph text per state. Empty ones are drawn by CSS: the circle itself (none,
 // missing, run — a pulsing dot in the pill) or a padlock mask (locked).
 var G = {
@@ -1369,6 +1376,13 @@ function groupTitle(g) {
 }
 function trackColor(track) {
   return TRK_COLOR[track] || "var(--soft)";
+}
+// Inline custom properties for a track-coloured element (group label,
+// breadcrumb pill): --track and --track-ink.
+function trackVars(track) {
+  return (
+    "--track:" + trackColor(track) + ";--track-ink:" + (TRK_INK[track] || "#fff")
+  );
 }
 function trackName(track) {
   return TRK_COLOR[track]
@@ -1886,9 +1900,9 @@ function renderRail() {
     if (s.track !== lastTrack) {
       lastTrack = s.track;
       h +=
-        '<div class="grp"><div class="glabel"><span class="tk" style="background:' +
-        trackColor(s.track) +
-        '"></span>' +
+        '<div class="grp" style="' +
+        trackVars(s.track) +
+        '"><div class="glabel">' +
         escapeHtml(trackName(s.track)) +
         "</div>";
     }
@@ -2327,11 +2341,12 @@ function renderCockpit() {
     ck.innerHTML =
       '<div class="ck-top" style="border-top:4px solid ' +
       trackC +
+      ";" +
+      trackVars(step.track) +
       '">' +
-      '<div class="breadcrumb"><span class="tk" style="background:' +
-      trackC +
-      '"></span>' +
+      '<div class="breadcrumb"><span class="trackpill">' +
       escapeHtml(trackName(step.track)) +
+      "</span>" +
       /* " · Stage: " +
       escapeHtml(stageLabel) + */
       "</div>" +
@@ -2387,12 +2402,13 @@ function renderCockpit() {
   ck.innerHTML =
     '<div class="ck-top ck-top-split" style="border-top:4px solid ' +
     trackC +
+    ";" +
+    trackVars(step.track) +
     '">' +
     '<div class="ck-title">' +
-    '<div class="breadcrumb"><span class="tk" style="background:' +
-    trackC +
-    '"></span>' +
+    '<div class="breadcrumb"><span class="trackpill">' +
     escapeHtml(trackName(step.track)) +
+    "</span>" +
     /* " · Stage: " +
     escapeHtml(stageLabel) + */
     "</div>" +
