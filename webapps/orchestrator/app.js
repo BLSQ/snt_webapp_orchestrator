@@ -427,6 +427,17 @@ function fmtDuration(sec) {
   return s + "s";
 }
 
+// The time shown next to a run: OpenHEXA's `duration` once the run has
+// finished; while in flight, the time elapsed since `executionDate` (computed
+// here, refreshed on each poll tick). null — no time shown — for an in-flight
+// run without an executionDate yet (e.g. queued), rather than a fake "0s".
+function runTimeText(run) {
+  if (!run) return null;
+  if (isRunFinished(run.status)) return fmtDuration(run.duration);
+  var d = parseRunDate(run.executionDate);
+  return d ? fmtDuration((Date.now() - d.getTime()) / 1000) : null;
+}
+
 function isHtmlKey(key) {
   return /\.html?$/i.test(String(key || ""));
 }
@@ -1651,7 +1662,7 @@ function statusPillHtml(node) {
   var meta = "";
   if (!showLocked && run) {
     meta = " · " + fmtRunDate(run.executionDate);
-    var dur = fmtDuration(run.duration);
+    var dur = runTimeText(run);
     if (dur) meta += " · " + dur;
   }
   var inner =
@@ -2943,6 +2954,18 @@ function pollRun(node, runId) {
   setTimeout(tick, 2500);
 }
 
+// After a reload, the latest run of a node can still be in flight with nothing
+// watching it: pick polling back up so the pill keeps moving and turns ✓/✕ at
+// the end. A resumed poll starts a fresh POLL_MAX_ATTEMPTS budget (APP-5).
+function resumeInFlightPolls() {
+  APP.nodes.forEach(function (n) {
+    if (!n.uuid || APP.activeRun[n.id]) return;
+    var run = liveRunOf(n);
+    if (run && run.id && run.status && !isRunFinished(run.status))
+      pollRun(n, run.id);
+  });
+}
+
 // Terminal status reached: re-render the panel (so the run-page link + outputs
 // reflect the finished run) if the user is still on this step, then restore the
 // completion line.
@@ -3127,6 +3150,7 @@ async function init() {
 
     // Live last-run status → drives greying-vs-run, locking, and mutual exclusion.
     await loadStatuses();
+    resumeInFlightPolls();
     seedGroupSuccessFromStatus();
     computeGroupInUse();
     syncAltSelToInUse();

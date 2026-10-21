@@ -166,6 +166,11 @@ query ($id: UUID!) {
 - `outputs` is a union — always use `__typename` and inline fragments.
 - **Terminal statuses: `success`, `failed`, `stopped`, `skipped`.** `queued`, `running` and
   **`terminating`** are still in flight — keep polling through `terminating`.
+- **`duration` (seconds, nullable) is the final run time — do not use it as a live counter.** While
+  the run is in flight, compute elapsed time client-side from `executionDate`. `executionDate`
+  can be null before the run starts (e.g. `queued`): show no time then, not `0s`.
+- Polling lives in the page. After a reload nothing watches a run that is still in flight unless
+  the app restarts polling from the latest run returned by the status query.
 - The union has a third member, `DatabaseTable`. Without a fragment for it a table output is
   silently not rendered, so "no outputs shown" does not prove "no outputs produced"
   ([UI-3](BACKLOG.md#ui-3)).
