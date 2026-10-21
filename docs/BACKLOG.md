@@ -232,6 +232,14 @@ way.
 `--queue` / `--queue-bg` in `styles.css` (grey text on OpenHEXA's gray-100) are a guess: the queued
 badge shows for seconds in OpenHEXA and its colours weren't captured. Replace them once seen.
 
+### <a id="app-11"></a>APP-11 · Output dataset links need `DATASETS_READ`
+
+The proxy grants `DatasetVersion` / `Dataset` fields only under `DATASETS_READ`
+([runtime](OPENHEXA_WEBAPP_RUNTIME.md#allowed_operations-scopes)), which the app does not have
+(R9). So `DATASET_OUTPUTS_QUERY` is refused and the Latest outputs box lists no dataset links;
+files and the HTML report are unaffected. Decide: add `DATASETS_READ` (changes R9) and the links
+come back with no code change, or drop the query.
+
 ## Platform & portability
 
 ### <a id="plat-1"></a>PLAT-1 · Self-hosted OpenHEXA

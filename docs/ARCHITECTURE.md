@@ -196,7 +196,8 @@ Code-level rules (both `I18N` tables, `pickLang` fallbacks, language resolution 
 
 ## Run outputs and the report embed
 
-After a run the app shows its output datasets and files from `pipelineRun.outputs` /
-`datasetVersions`. A run's HTML report renders **inline** in an `<iframe>` on a freshly signed GCS
+After a run the app shows its output files from `pipelineRun.outputs`, and its output datasets
+from `pipelineRun.datasetVersions` in a separate, best-effort query (it needs `DATASETS_READ`,
+[APP-11](BACKLOG.md#app-11)). A run's HTML report renders **inline** in an `<iframe>` on a freshly signed GCS
 URL, re-signed on demand because signed URLs expire. The technique is in
 [`OPENHEXA_WEBAPP_RUNTIME.md`](OPENHEXA_WEBAPP_RUNTIME.md#embedding-an-html-report-iframe).

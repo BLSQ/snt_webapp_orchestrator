@@ -48,15 +48,18 @@ fetch("/graphql/", {
 });
 ```
 
-The proxy enforces an **Origin check** (same-origin requests only) and answers **HTTP 403** for a
-top-level field outside the webapp's scopes. It also filters **nested fields**: a query whose
-top-level field is allowed can still be refused with `Fields not allowed: <Type>.<field>, …` (a
-GraphQL error, so `gql()` throws). A scope unlocking a top-level field does not unlock every field
-under it.
+The proxy enforces an **Origin check** (same-origin requests only) and checks scopes **per field**:
+every field in the document, nested ones included, is judged against the type it is selected on
+(`SCOPE_GRANTS` in openhexa-app `backend/hexa/webapps/scopes.py`). **One denied field refuses the
+whole query** with HTTP 403 and `Fields not allowed: <Type>.<field>, …` (plus an `Enable scope(s):
+…` hint when a scope would cover it), so `gql()` throws and nothing comes back. A scope unlocking a
+top-level field does not unlock every type under it. ⚠️ Keep a field that needs an optional scope
+in its own query, so a refusal cannot take required data down with it.
 
 ## `allowed_operations` scopes
 
-The proxy whitelists GraphQL **top-level fields** by scope:
+The table lists the **top-level fields** each scope unlocks. The nested types each scope grants are
+in `SCOPE_GRANTS`; check there before selecting a new nested field:
 
 | Scope | Top-level fields it unlocks |
 |---|---|
@@ -81,6 +84,10 @@ check before relying on them. `__typename`, `__schema` and `__type` are always a
   never load, and connection parameters fall back to a text slug input
   ([OH-2](BACKLOG.md#oh-2)). The app keeps `USER_READ` (R9) and the dropdown code, so they work as
   soon as the proxy allows the fields.
+
+- `PIPELINES_READ` grants `PipelineRun.datasetVersions` but **not** the `DatasetVersion` /
+  `Dataset` fields under it; those need `DATASETS_READ`, and `Dataset.workspace` is granted to no
+  scope. So the orchestrator's output dataset links do not load ([APP-11](BACKLOG.md#app-11)).
 
 Available under these scopes but unused: `readFileContent` (an alternative catalog read,
 [UI-10](BACKLOG.md#ui-10)), `stopPipeline` ([UI-1](BACKLOG.md#ui-1)), `getFileByPath`.
@@ -158,8 +165,17 @@ query ($id: UUID!) {
       ... on BucketObject { key name type }
       ... on GenericOutput { uri genericName: name }   # alias required: name is String! vs String
     }
-    datasetVersions { id name dataset { slug name workspace { slug } } }
   }
+}
+```
+
+Dataset versions go in a **separate** query, because they need `DATASETS_READ` (see
+[scopes](#allowed_operations-scopes)); in one query, their refusal would also drop the files and the
+report:
+
+```graphql
+query ($id: UUID!) {
+  pipelineRun(id: $id) { datasetVersions { id name dataset { slug name } } }
 }
 ```
 
@@ -212,7 +228,8 @@ var appBase = "https://app.openhexa.org";
 appBase + "/workspaces/" + ws + "/pipelines/" + pipelineCode + "/runs/" + runId + "/";
 
 // Dataset version page — needs BOTH /from/<sourceWs> AND ?version=<datasetVersionId>
-// (the plain /datasets/<slug>/ form 404s). Values come from pipelineRun.datasetVersions.
+// (the plain /datasets/<slug>/ form 404s). Values come from pipelineRun.datasetVersions;
+// sourceWs is the run's workspace (Dataset.workspace is not readable through the proxy).
 appBase + "/workspaces/" + ws + "/datasets/" + datasetSlug + "/from/" + sourceWs + "/?version=" + versionId;
 
 // Template page — the URL-encoded template DISPLAY NAME, not a slug:

@@ -72,7 +72,7 @@ var CONNECTIONS_QUERY =
   "  }" +
   "}";
 
-// pipelineRun outputs for one run — datasets + bucket/generic file outputs.
+// pipelineRun bucket/generic file outputs for one run (PIPELINES_READ).
 // outputs is a union, so use __typename inline fragments.
 var OUTPUTS_QUERY =
   "query ($id: UUID!) {" +
@@ -82,7 +82,18 @@ var OUTPUTS_QUERY =
   "      ... on BucketObject { key name type }" +
   "      ... on GenericOutput { uri genericName: name }" +
   "    }" +
-  "    datasetVersions { id name dataset { slug name workspace { slug } } }" +
+  "  }" +
+  "}";
+
+// The run's dataset versions, queried separately: the proxy checks scopes per
+// field and refuses the whole query if one field is denied, and DatasetVersion /
+// Dataset fields need DATASETS_READ, which this app does not have (R9). So this
+// query is best-effort and must never take the file outputs down with it.
+// Dataset.workspace is never granted to webapps, so it is not asked for.
+var DATASET_OUTPUTS_QUERY =
+  "query ($id: UUID!) {" +
+  "  pipelineRun(id: $id) {" +
+  "    datasetVersions { id name dataset { slug name } }" +
   "  }" +
   "}";
 
@@ -2673,7 +2684,16 @@ async function loadOutputs(node, run) {
 
   box.innerHTML = '<p class="sb-muted">' + escapeHtml(t("out.loading")) + "</p>";
 
-  var data;
+  var datasetsReq = gql(DATASET_OUTPUTS_QUERY, { id: run.id }).catch(
+    function (err) {
+      console.warn(
+        "SNT Orchestrator (cockpit) — dataset outputs unavailable:",
+        err,
+      );
+      return null;
+    },
+  );
+  var data, dsData;
   try {
     data = await gql(OUTPUTS_QUERY, { id: run.id });
   } catch (err) {
@@ -2683,18 +2703,21 @@ async function loadOutputs(node, run) {
         '<p class="sb-muted">' + escapeHtml(t("out.couldntLoad")) + "</p>";
     return;
   }
+  dsData = await datasetsReq;
   if (APP.selectedId !== node.id) return; // navigated away
 
   var pr = data.pipelineRun || {};
+  var dsRun = (dsData && dsData.pipelineRun) || {};
   var base = appBaseUrl();
   var html = "";
 
   var seen = {};
-  (pr.datasetVersions || []).forEach(function (dv) {
+  (dsRun.datasetVersions || []).forEach(function (dv) {
     var ds = dv.dataset;
     if (!ds || !dv.id || seen[dv.id]) return;
     seen[dv.id] = true;
-    var fromSlug = ds.workspace && ds.workspace.slug ? ds.workspace.slug : slug;
+    // A run writes its datasets in its own workspace.
+    var fromSlug = slug;
     var url =
       base +
       "/workspaces/" +
