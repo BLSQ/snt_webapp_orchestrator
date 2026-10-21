@@ -78,7 +78,8 @@ Status: `enforced` — something fails mechanically · `convention` — manual; 
 - **Bucket key ≠ repo path.** `utils_pipelines/create_pipeline_cards/pipeline_cards/pipeline_cards.json`
   is a runtime path in every bucket: `CARDS_OBJECT_KEY` (`app.js`) ↔ `OUTPUT_DIR` +
   `WEBAPP_CARDS_PATH` (`config.py`), in lockstep. Do not "fix" it to match `pipelines/`
-  ([REPO-3](docs/BACKLOG.md#repo-3)).
+  ([REPO-3](docs/BACKLOG.md#repo-3)). Same for the READMEs next to it: `README_DIR_KEY` (`app.js`)
+  ↔ `OUTPUT_DIR` + `README_DIR` (`config.py`).
 - **Generator after webapp.** `create_pipeline_cards` curates against the *deployed* map of
   `config.WEBAPP_SLUG` and fails if that webapp is absent.
 - **`.io` vs `.org`.** Webapps are served on `*.openhexa.io`; the UI is `app.openhexa.org`. Never

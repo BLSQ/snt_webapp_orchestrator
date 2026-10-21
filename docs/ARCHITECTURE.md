@@ -24,6 +24,7 @@ IN EACH WORKSPACE — generated, never in the repo                              
   pipelines/create_pipeline_cards/ (repo folder) → pushed and run as a pipeline   │
         ▼                                                                         │
   bucket: utils_pipelines/create_pipeline_cards/pipeline_cards/pipeline_cards.json ┘
+          utils_pipelines/create_pipeline_cards/pipeline_cards/readmes/<id>.md   (read when opened)
 ```
 
 ## Data architecture
@@ -38,6 +39,7 @@ catalog.
 | `webapps/orchestrator/pipeline_map.json` | bundle (all workspaces) | nodes (`id`, `code`, bilingual `label`, `ohName`, stage `row`, `track`, `type`, mutex `group`) + directed `edges` | [`pipeline_map.schema.json`](../contracts/pipeline_map.schema.json) |
 | `webapps/orchestrator/pipeline_descriptions.json` | bundle | hand-authored Markdown-lite description per node, keyed by `id`, as `{ en, fr }` | [`pipeline_descriptions.schema.json`](../contracts/pipeline_descriptions.schema.json) |
 | `pipeline_cards.json` — **in the workspace bucket, not the repo** | per workspace | which pipelines exist + `uuid` + `parameters` + source version | [`pipeline_cards.schema.json`](../contracts/pipeline_cards.schema.json) |
+| `readmes/<id>.md` — **in the workspace bucket, next to the catalog** | per workspace | each curated pipeline's README, copied from its deployed version | — (Markdown, see [Pipeline READMEs](#pipeline-readmes)) |
 | `webapps/orchestrator/index.html` + `app.js` + `styles.css` | bundle | the app shell: merges map + descriptions with the catalog, runs and polls pipelines | — |
 
 The map and descriptions are **hand-authored**, not generated from the API.
@@ -70,7 +72,17 @@ utils_pipelines/create_pipeline_cards/pipeline_cards/pipeline_cards.json
 written by `create_pipeline_cards`, which archives the previous file under `…/historical/` with a
 timestamp on every run.
 
-**How the app reads it** (`loadCards()` in `app.js`):
+### Pipeline READMEs
+
+The same run writes each curated pipeline's root-level `readme.md`, taken from its deployed
+version's code, to `readmes/<id>.md` next to the catalog, after emptying that folder
+([ADR 0016](decisions/0016-readmes-from-deployed-version.md)). The step panel's **Documentation**
+section (collapsed by default) fetches it the same way as the catalog the first time it is opened
+(`loadReadme()`, key `README_DIR_KEY` + `/<id>.md`), caches it for the session and renders it with
+`renderMarkdown()`. A missing file shows "Documentation not available, re-run Create
+pipeline_cards". `README_DIR_KEY` is in lockstep with `OUTPUT_DIR` + `README_DIR` in `config.py`.
+
+**How the app reads the catalog** (`loadCards()` in `app.js`):
 
 1. `prepareObjectDownload(input: {workspaceSlug, objectKey: CARDS_OBJECT_KEY, forceAttachment: false})`
    through the `/graphql/` proxy → a signed GCS URL. Needs **`FILES_READ`**.

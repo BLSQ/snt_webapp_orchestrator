@@ -85,6 +85,11 @@ check before relying on them. `__typename`, `__schema` and `__type` are always a
   ([OH-2](BACKLOG.md#oh-2)). The app keeps `USER_READ` (R9) and the dropdown code, so they work as
   soon as the proxy allows the fields.
 
+- `PIPELINES_READ` unlocks `pipelineVersion`, but **not** `PipelineVersion.files` or `zipfile`,
+  and no scope grants them, so a webapp cannot read a pipeline's code (or its README). The
+  generator copies the READMEs to the bucket instead
+  ([ADR 0016](decisions/0016-readmes-from-deployed-version.md), [OH-3](BACKLOG.md#oh-3)).
+
 - `PIPELINES_READ` grants `PipelineRun.datasetVersions` but **not** the `DatasetVersion` /
   `Dataset` fields under it; those need `DATASETS_READ`, and `Dataset.workspace` is granted to no
   scope. So the orchestrator's output dataset links do not load ([APP-11](BACKLOG.md#app-11)).
