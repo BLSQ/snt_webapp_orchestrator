@@ -20,9 +20,19 @@
   --B: #1f9e8e;
   --C: #8453c9;
   --D: #c0473b;
-  --ok: #2e7d4f;
-  --fail: #c0392b;
-  --run: #b8860b;
+  /* Run-status colours: OpenHEXA's run badges (main = ring/symbol/text,
+     -bg = fill). Queued is a guess (OH's gray-100), it shows for seconds. */
+  --ok: #00bc7d;
+  --ok-bg: #ecfdf5;
+  --fail: #fb2c36;
+  --fail-bg: #ffe2e2;
+  --run: #0084d1;
+  --run-bg: #dff2fe;
+  --stop: #4a5565;
+  --stop-bg: #fef9c2;
+  --queue: #4a5565;
+  --queue-bg: #f3f4f6;
+  --lock-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M5 7.5V5a3 3 0 0 1 6 0v2.5' fill='none' stroke='black' stroke-width='1.9'/%3E%3Crect x='2.75' y='7' width='10.5' height='8' rx='1.6'/%3E%3C/svg%3E");
   --sans:
     -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial,
     sans-serif;
@@ -205,15 +215,8 @@ body {
 .ritem .sg {
   width: 20px;
   height: 20px;
-  border-radius: 50%;
-  border: 1.6px solid var(--faint);
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  border-width: 1.6px;
   font-size: 10px;
-  font-weight: 700;
-  flex: none;
-  background: #fff;
 }
 .ritem .rlabel {
   font-size: 12.5px;
@@ -244,30 +247,46 @@ body {
   font-weight: 700;
   white-space: nowrap;
 }
-/* Center the status glyph inside its box in every context (the rail already
-   does this on .ritem .sg; this covers the smaller dep-chip / pill / alt glyphs,
-   which otherwise fall to the top-left of their box). */
+/* Status glyph: a centred circle in every context (rail, dep chip, alt
+   chooser, legend; the pill strips the circle). Ring style carries the
+   install axis: dashed = not installed, solid = installed (any state). */
 .sg {
   display: flex;
   align-items: center;
   justify-content: center;
+  border-radius: 50%;
+  border: 1.4px solid var(--faint);
+  background: #fff;
+  font-weight: 700;
+  flex: none;
 }
 
 /* status glyph colors */
 .sg.ok {
-  background: var(--ok);
+  background: var(--ok-bg);
   border-color: var(--ok);
-  color: #fff;
+  color: var(--ok);
 }
 .sg.fail {
-  background: #fff;
+  background: var(--fail-bg);
   border-color: var(--fail);
   color: var(--fail);
 }
 .sg.run {
-  border-style: dashed;
+  background: var(--run-bg);
   border-color: var(--run);
   color: var(--run);
+  animation: sg-pulse 1.4s ease-in-out infinite;
+}
+.sg.stop {
+  background: var(--stop-bg);
+  border-color: var(--stop);
+  color: var(--stop);
+}
+.sg.queue {
+  background: var(--queue-bg);
+  border-color: var(--queue);
+  color: var(--queue);
 }
 .sg.none {
   color: var(--faint);
@@ -277,9 +296,63 @@ body {
   border-style: dashed;
 }
 .sg.locked {
-  border-style: dashed;
   background: #eceef1;
+  color: var(--soft);
+}
+/* Monochrome padlock in the text colour (no emoji). */
+.sg.locked::before {
+  content: "";
+  width: 58%;
+  height: 58%;
+  background: currentColor;
+  -webkit-mask: var(--lock-icon) center / contain no-repeat;
+  mask: var(--lock-icon) center / contain no-repeat;
+}
+@keyframes sg-pulse {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 rgba(0, 132, 209, 0.45);
+  }
+  50% {
+    box-shadow: 0 0 0 4px rgba(0, 132, 209, 0);
+  }
+}
+
+/* Rail legend: "not installed" vs "installed → its states". */
+.rail-legend {
+  margin: 12px 18px 10px;
+  padding: 9px 10px;
+  border: 1px solid var(--line-soft);
+  border-radius: 8px;
+  background: var(--panel);
+  font-size: 10.5px;
+  color: var(--soft);
+  white-space: normal;
+}
+.rail-legend .lh {
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  font-size: 9.5px;
   color: var(--faint);
+  margin-bottom: 5px;
+}
+.rail-legend .li {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 3px 0;
+}
+.rail-legend .li .sg {
+  width: 13px;
+  height: 13px;
+  font-size: 7.5px;
+  border-width: 1.2px;
+}
+.rail-legend .sub {
+  margin-left: 8px;
+  padding-left: 9px;
+  border-left: 1.5px solid var(--line);
 }
 
 /* ---------- CENTER COCKPIT ---------- */
@@ -360,33 +433,72 @@ body {
   font-size: 12px;
   font-weight: 600;
   border-radius: 11px;
-  padding: 3px 11px 3px 5px;
+  padding: 3px 11px 3px 9px;
+  /* OpenHEXA badges' faint inset ring */
+  box-shadow: inset 0 0 0 1px rgba(106, 114, 130, 0.2);
 }
+/* "Never run" / "Not installed" pills are text only (no glyph). */
+.statuspill.none,
+.statuspill.missing {
+  padding-left: 11px;
+}
+/* In the pill the glyph is a bare icon, no circle. */
 .statuspill .sg {
-  width: 18px;
-  height: 18px;
-  font-size: 10px;
+  border: 0;
+  background: none;
+  border-radius: 0;
+  font-size: 11px;
+  color: inherit;
+  animation: none;
+}
+.statuspill .sg.locked {
+  width: 11px;
+  height: 11px;
+}
+.statuspill .sg.locked::before {
+  width: 100%;
+  height: 100%;
+}
+/* Running: a pulsing dot instead of the ring. */
+.statuspill .sg.run::before {
+  content: "";
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: currentColor;
+  animation: sg-pulse 1.4s ease-in-out infinite;
 }
 .statuspill.ok {
-  background: #e7f3ec;
+  background: var(--ok-bg);
   color: var(--ok);
 }
 .statuspill.fail {
-  background: #fbeae8;
+  background: var(--fail-bg);
   color: var(--fail);
 }
 .statuspill.run {
-  background: #fbf3df;
+  background: var(--run-bg);
   color: var(--run);
+}
+.statuspill.stop {
+  background: var(--stop-bg);
+  color: var(--stop);
+}
+.statuspill.queue {
+  background: var(--queue-bg);
+  color: var(--queue);
 }
 .statuspill.none {
   background: #eceef1;
   color: var(--soft);
 }
-.statuspill.missing,
-.statuspill.locked {
+.statuspill.missing {
   background: #eceef1;
   color: var(--faint);
+}
+.statuspill.locked {
+  background: #eceef1;
+  color: var(--soft);
 }
 /* Clickable pill (links to the run's OpenHEXA page). */
 .statuspill-link {
@@ -613,8 +725,9 @@ body {
   right: 10px;
   font-size: 8px;
   letter-spacing: 0.05em;
-  color: #fff;
-  background: var(--ok);
+  color: var(--ok);
+  background: var(--ok-bg);
+  box-shadow: inset 0 0 0 1px var(--ok);
   border-radius: 3px;
   padding: 1px 5px;
   font-weight: 700;
@@ -826,7 +939,10 @@ select.finput {
   text-decoration: underline;
 }
 .sb-runstatus.rs-run {
-  color: #1565c0;
+  color: var(--run);
+}
+.sb-runstatus.rs-queue {
+  color: var(--queue);
 }
 .sb-runstatus.rs-ok {
   color: var(--ok);
@@ -834,6 +950,10 @@ select.finput {
 .sb-runstatus.rs-err {
   color: var(--fail);
 }
+.sb-runstatus.rs-stop {
+  color: var(--stop);
+}
+/* ⚠ messages (fix fields, not available…), not a run status. */
 .sb-runstatus.rs-warn {
   color: #b26a00;
 }
@@ -848,6 +968,13 @@ select.finput {
   }
   50% {
     opacity: 1;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .sg.run,
+  .statuspill .sg.run::before,
+  .sb-runstatus .rs-glyph.spin {
+    animation: none;
   }
 }
 .sb-config {
@@ -1006,11 +1133,11 @@ select.finput {
   line-height: 1.4;
 }
 .sb-altnote.is-current {
-  background: #e7f3ec;
+  background: var(--ok-bg);
   color: var(--ok);
 }
 .sb-altnote.running {
-  background: #fbf3df;
+  background: var(--run-bg);
   color: var(--run);
 }
 .sb-altnote.superseded {

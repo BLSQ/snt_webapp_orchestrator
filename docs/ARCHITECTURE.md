@@ -142,6 +142,14 @@ Three independent axes per node:
   pipeline falls back to a parameter). If run status is unavailable (opened outside OpenHEXA, or the
   status query failed) nothing is locked, so the walkthrough stays explorable.
 
+**What the UI shows.** One state per node, nested: **not installed** (`missing`, dashed ring) is
+never locked; an **installed** node (solid ring) is one of never run (`none`), **locked** (a `none`
+node with an unmet hard prerequisite — only never-run nodes are locked, see
+[APP-10](BACKLOG.md#app-10)), queued, running, succeeded, failed or stopped. `cockpitState()` maps
+OpenHEXA run statuses onto these (`terminating` → running, `skipped` → stopped); the colours and
+labels follow OpenHEXA's run badges (tokens at the top of `styles.css`). A legend under the rail
+spells out the nesting.
+
 **Group-aware unlock.** When several hard prerequisites of a node belong to the same alternative
 `group`, they count as one: bucket the solid sources of node `N` by `group` (a source with no group
 is its own bucket) and require **at least one completed source per bucket** (`lockedReason()`).

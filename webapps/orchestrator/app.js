@@ -541,10 +541,15 @@ var I18N = {
     // status labels
     "status.ok": "Succeeded",
     "status.fail": "Failed",
-    "status.run": "Running…",
+    "status.stop": "Stopped",
+    "status.queue": "Queued",
+    "status.run": "Running",
     "status.none": "Never run",
     "status.missing": "Not installed",
-    "status.locked": "Locked",
+    "status.locked": "Installed · Locked",
+    "legend.head": "Legend",
+    "legend.installed": "Installed:",
+    "legend.locked": "Locked — run its prerequisites first",
     // tracks
     "track.A": "Track A · Routine Surveillance Data",
     "track.B": "Track B · Geo & raster",
@@ -632,7 +637,7 @@ var I18N = {
     // run lifecycle
     "runstat.queued": "Queued…",
     "runstat.running": "Running…",
-    "runstat.terminating": "Stopping…",
+    "runstat.terminating": "Running…",
     "runstat.success": "Completed successfully",
     "runstat.failed": "Run failed",
     "runstat.stopped": "Run stopped",
@@ -733,10 +738,15 @@ var I18N = {
     // status labels
     "status.ok": "Réussi",
     "status.fail": "Échoué",
-    "status.run": "En cours…",
+    "status.stop": "Arrêté",
+    "status.queue": "En file d’attente",
+    "status.run": "En cours",
     "status.none": "Jamais exécuté",
     "status.missing": "Non installé",
-    "status.locked": "Verrouillé",
+    "status.locked": "Installé · Verrouillé",
+    "legend.head": "Légende",
+    "legend.installed": "Installé :",
+    "legend.locked": "Verrouillé — exécutez d’abord ses prérequis",
     // tracks
     "track.A": "Piste A · Données de surveillance de routine",
     "track.B": "Piste B · Géo & raster",
@@ -824,7 +834,7 @@ var I18N = {
     // run lifecycle
     "runstat.queued": "En file d’attente…",
     "runstat.running": "En cours…",
-    "runstat.terminating": "Arrêt…",
+    "runstat.terminating": "En cours…",
     "runstat.success": "Terminé avec succès",
     "runstat.failed": "Échec de l’exécution",
     "runstat.stopped": "Exécution arrêtée",
@@ -1009,16 +1019,22 @@ function liveRunOf(node) {
 //   missing  = not installed in this workspace
 //   none     = installed, never run
 //   ok       = latest run succeeded
-//   fail     = latest run failed / stopped / skipped
-//   run      = latest run queued / running / terminating
+//   fail     = latest run failed
+//   stop     = latest run stopped / skipped
+//   queue    = latest run queued
+//   run      = latest run running / terminating
+// "locked" is not returned here: it is a display state layered on "none"
+// (installed, never run) by the renderers — never on "missing".
 function cockpitState(node) {
   if (!node.available) return "missing";
   var run = liveRunOf(node);
   if (!run) return "none";
   var s = run.status;
   if (s === "success") return "ok";
-  if (s === "failed" || s === "stopped" || s === "skipped") return "fail";
-  return "run"; // queued / running / terminating
+  if (s === "failed") return "fail";
+  if (s === "stopped" || s === "skipped") return "stop";
+  if (s === "queued") return "queue";
+  return "run"; // running / terminating
 }
 
 function isSuccess(id) {
@@ -1064,9 +1080,21 @@ function lockedReason(id) {
 // Track accent colors only; the human-readable track/status/stage names now
 // live in the I18N table (see t("track.A"), t("status.ok"), etc.).
 var TRK_COLOR = { A: "var(--A)", B: "var(--B)", C: "var(--C)", D: "var(--D)" };
-var G = { ok: "✓", fail: "✕", run: "⟳", none: "○", missing: "⦸", locked: "🔒" };
+// Glyph text per state. Empty ones are drawn by CSS: the circle itself (none,
+// missing, run — a pulsing dot in the pill) or a padlock mask (locked).
+var G = {
+  ok: "✓",
+  fail: "✕",
+  stop: "■",
+  queue: "…",
+  run: "",
+  none: "",
+  missing: "",
+  locked: "",
+};
 
-// Localized status label for a cockpit state (missing/none/ok/fail/run/locked).
+// Localized status label for a cockpit state
+// (missing/none/ok/fail/stop/queue/run/locked).
 function statusLabel(state) {
   return t("status." + state);
 }
@@ -1174,6 +1202,7 @@ function stepStatus(step) {
   var sts = step.members.map(cockpitState);
   if (sts.indexOf("ok") >= 0) return "ok";
   if (sts.indexOf("run") >= 0) return "run";
+  if (sts.indexOf("queue") >= 0) return "queue";
   if (
     sts.every(function (x) {
       return x === "missing";
@@ -1181,6 +1210,7 @@ function stepStatus(step) {
   )
     return "missing";
   if (sts.indexOf("fail") >= 0) return "fail";
+  if (sts.indexOf("stop") >= 0) return "stop";
   return "none";
 }
 
@@ -1609,10 +1639,6 @@ function renderRail() {
     var locked = avail ? lockedReason(rep.id) : null;
     var showLocked = locked && st === "none";
     var glyphState = !avail ? "missing" : showLocked ? "locked" : st;
-    // In the rail the circle itself conveys the state, so "never run" and "not
-    // installed" show an empty circle (no glyph); other states keep their glyph.
-    var railGlyph =
-      glyphState === "none" || glyphState === "missing" ? "" : G[glyphState];
     var cls =
       (i === APP.cur ? "here " : "") +
       (!avail ? "missing " : showLocked ? "locked " : "");
@@ -1633,7 +1659,7 @@ function renderRail() {
       '<span class="sg ' +
       glyphState +
       '">' +
-      railGlyph +
+      G[glyphState] +
       "</span>" +
       '<div style="min-width:0"><div class="rlabel">' +
       /* '<span class="rcode">' +
@@ -1648,7 +1674,40 @@ function renderRail() {
     var next = APP.steps[i + 1];
     if (!next || next.track !== s.track) h += "</div>";
   });
-  rail.innerHTML = h;
+  rail.innerHTML = h + railLegendHtml();
+}
+
+// Legend under the rail: "not installed" on its own, then every state an
+// installed pipeline can be in (locked included), so locked never reads as
+// "not installed".
+function railLegendHtml() {
+  function item(state, label) {
+    return (
+      '<div class="li"><span class="sg ' +
+      state +
+      '">' +
+      G[state] +
+      "</span>" +
+      escapeHtml(label) +
+      "</div>"
+    );
+  }
+  return (
+    '<div class="rail-legend"><div class="lh">' +
+    escapeHtml(t("legend.head")) +
+    "</div>" +
+    item("missing", statusLabel("missing")) +
+    item("none", t("legend.installed")) +
+    '<div class="sub">' +
+    item("none", statusLabel("none")) +
+    item("locked", t("legend.locked")) +
+    item("queue", statusLabel("queue")) +
+    item("run", statusLabel("run")) +
+    item("ok", statusLabel("ok")) +
+    item("fail", statusLabel("fail")) +
+    item("stop", statusLabel("stop")) +
+    "</div></div>"
+  );
 }
 
 /* ================================================================== *
@@ -1665,13 +1724,15 @@ function statusPillHtml(node) {
     var dur = runTimeText(run);
     if (dur) meta += " · " + dur;
   }
+  // "Never run" / "Not installed" are text only; other states lead with a bare
+  // icon (CSS strips the circle; running is a pulsing dot).
+  var icon =
+    state === "none" || state === "missing"
+      ? ""
+      : '<span class="sg ' + state + '">' + G[state] + "</span>";
   var inner =
-    '<span class="sg ' +
-    state +
-    '">' +
-    G[state] +
-    "</span>" +
-    escapeHtml(showLocked ? statusLabel("locked") : statusLabel(state)) +
+    icon +
+    escapeHtml(statusLabel(state)) +
     escapeHtml(meta);
   // When there's a run to link to, the whole pill becomes a link to that run's
   // OpenHEXA page (with an outlink glyph); otherwise it's a plain badge.
@@ -2648,9 +2709,9 @@ function applyRunToNode(node, run) {
 function runStatusCls(status) {
   if (status === "success") return "rs-ok";
   if (status === "failed") return "rs-err";
-  if (status === "stopped" || status === "skipped" || status === "terminating")
-    return "rs-warn";
-  return "rs-run";
+  if (status === "stopped" || status === "skipped") return "rs-stop";
+  if (status === "queued") return "rs-queue";
+  return "rs-run"; // running / terminating (OpenHEXA shows both as Running)
 }
 
 function runStatusLineHtml(node, run) {
@@ -2660,11 +2721,12 @@ function runStatusLineHtml(node, run) {
       ? "✓"
       : s === "failed"
         ? "✕"
-        : s === "stopped" || s === "skipped" || s === "terminating"
+        : s === "stopped" || s === "skipped"
           ? "■"
           : "●";
   var label = I18N[LANG]["runstat." + s] != null ? t("runstat." + s) : s;
-  var spin = s === "queued" || s === "running" ? " spin" : "";
+  var spin =
+    s === "queued" || s === "running" || s === "terminating" ? " spin" : "";
   var url = runPageUrl(node, run);
   var link = url
     ? ' <a class="run-link" href="' +

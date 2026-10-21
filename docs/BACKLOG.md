@@ -206,6 +206,21 @@ still `A.3 …`), and `snt_seasonality_rainfall` (template `D.3 ERA5 Seasonality
 `D.2 …`). Decide whether `ohName` mirrors the template name or the installed pipeline's name (they
 can differ), then update the map.
 
+### <a id="app-10"></a>APP-10 · Should a pipeline that has already run become locked again?
+
+Only an installed, **never-run** pipeline can be locked (`showLocked` = `lockedReason()` and state
+`none`, in the rail, the pill and `runRowHtml`). Example: A.2 succeeded last week, then A.1's latest
+run failed. A.2 still shows "Succeeded" and its Run button stays enabled. Decide whether "locked"
+should apply to an installed pipeline in any state whenever a hard prerequisite's latest run isn't a
+success. If yes: how to show it alongside the pipeline's own last-run status (the pill shows one
+state), and whether Run is disabled or only warned. Not-installed pipelines stay never-locked either
+way.
+
+### <a id="ui-11"></a>UI-11 · Confirm the "Queued" colours
+
+`--queue` / `--queue-bg` in `styles.css` (grey text on OpenHEXA's gray-100) are a guess: the queued
+badge shows for seconds in OpenHEXA and its colours weren't captured. Replace them once seen.
+
 ## Platform & portability
 
 ### <a id="plat-1"></a>PLAT-1 · Self-hosted OpenHEXA
