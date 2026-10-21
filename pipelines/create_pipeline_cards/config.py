@@ -16,6 +16,7 @@ QUERY_PARAMS = """
                 }
                 files {
                     name
+                    path
                     content
                 }
             }
@@ -23,6 +24,9 @@ QUERY_PARAMS = """
     }
 """
 PIPELINE_SOURCE_FILE = "pipeline.py"
+# The README next to pipeline.py at the root of the deployed code, matched
+# case-insensitively (the SNT pipelines ship it as readme.md).
+PIPELINE_README_FILE = "readme.md"
 PIPELINE_DECORATOR_PATTERN = r"""@pipeline\(\s*["']([^"']+)["']"""
 PARAMETER_TYPE_MAP = {
     "dhis2": "DHIS2Connection",
@@ -54,3 +58,6 @@ PIPELINES_PER_PAGE = 50
 # "/" + WEBAPP_CARDS_PATH must equal CARDS_OBJECT_KEY in webapps/orchestrator/app.js.
 OUTPUT_DIR = "utils_pipelines/create_pipeline_cards/pipeline_cards"
 WEBAPP_CARDS_PATH = "pipeline_cards.json"
+# Each curated pipeline's README, as <id>.md. OUTPUT_DIR + "/" + README_DIR must
+# equal README_DIR_KEY in webapps/orchestrator/app.js. Emptied on every run.
+README_DIR = "readmes"
