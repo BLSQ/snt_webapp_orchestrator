@@ -1,0 +1,43 @@
+name: Push create_pipeline_cards
+
+# Publishes the catalog generator to snt-development on every merge to main. Pushing from
+# snt-development also publishes a new version of its template, so never change `workspace:`
+# (snt_development CONVENTIONS.md R5).
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - ".github/workflows/push_create_pipeline_cards.yaml"
+      - "pipelines/create_pipeline_cards/**"
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Configure OpenHEXA CLI
+        uses: blsq/openhexa-cli-action@v1
+        with:
+          workspace: "snt-development"
+          token: ${{ secrets.OH_TOKEN }}
+
+      # The commit message goes through an env var, not inline `${{ }}`, so quotes or
+      # backticks in it cannot break (or inject into) the shell command.
+      - name: Push pipeline to OpenHEXA
+        env:
+          COMMIT_MESSAGE: ${{ github.event.head_commit.message }}
+        run: |
+          openhexa pipelines push pipelines/create_pipeline_cards \
+            --code "create-pipeline-cards" \
+            --description "${COMMIT_MESSAGE%%$'\n'*}" \
+            --link "https://github.com/${{ github.repository }}/commit/${{ github.sha }}" \
+            --yes
