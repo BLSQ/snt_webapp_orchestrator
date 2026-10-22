@@ -10,10 +10,15 @@ recorded in the repo** ([ADR 0011](decisions/0011-repo-is-not-a-deployment-recor
 - **The webapp:** the five files in `webapps/orchestrator/`, flat, exactly as they are in the repo
   — **not** the folder's `CLAUDE.md` (agent notes), and **never a `pipeline_cards.json`** — a copy found inside a deployed webapp is a leftover nothing
   fetches; remove it with `files_to_delete_json` ([OPS-2](BACKLOG.md#ops-2)).
-- **The generator:** `pipelines/create_pipeline_cards/`, pushed with the OpenHEXA CLI
-  (`openhexa pipelines push`) or installed from the template `Create pipeline_cards.json`. Giulia
-  pushes and runs pipelines herself; the agent stops at "ready to push" with the command and a test
-  plan.
+- **The generator:** `pipelines/create_pipeline_cards/`. Every merge to `main` that touches that
+  folder pushes it to `snt-development` (code `create-pipeline-cards`) through
+  [`.github/workflows/push_create_pipeline_cards.yaml`](../.github/workflows/push_create_pipeline_cards.yaml),
+  which also publishes a new version of its template. Other workspaces install it from the template
+  `Create pipeline_cards.json`; never `openhexa pipelines push` it from another workspace, which
+  creates a duplicate template (snt_development
+  [CONVENTIONS R5](https://github.com/BLSQ/snt_development/blob/main/docs/CONVENTIONS.md#r5--publish-only-from-the-snt-development-workspace)).
+  The workflow needs the repo secret `OH_TOKEN`. Giulia runs pipelines herself; the agent stops at
+  "ready to push" with a test plan.
 - **The catalog** is never deployed — it is produced by running the generator in the workspace.
 
 ## Developing locally
